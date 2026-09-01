@@ -74,6 +74,24 @@ Do NOT wrap your output in explanations. Output ONLY valid JSON with this struct
         self.event_log.append(entry)
         logger.info(f"[bold cyan][{event.value}][/bold cyan] {message}")
 
+    def execute_with_recovery(
+        self,
+        task: TaskDefinition,
+        provider: BaseModelProvider,
+        context_builder: ContextBuilder,
+        evidence: Optional[Dict[str, Any]] = None,
+    ) -> TransactionResult:
+        """Executes a task with the 3-attempt recovery loop."""
+        from recovery.manager import RecoveryManager
+        recovery_mgr = RecoveryManager()
+        return recovery_mgr.run_recovery_loop(
+            task=task,
+            runtime=self,
+            provider=provider,
+            context_builder=context_builder,
+            evidence=evidence,
+        )
+
     def execute_with_model(
         self,
         task: TaskDefinition,
@@ -82,17 +100,15 @@ Do NOT wrap your output in explanations. Output ONLY valid JSON with this struct
         evidence: Optional[Dict[str, Any]] = None,
         previous_failure: Optional[str] = None,
     ) -> TransactionResult:
-        """End-to-end model-driven transaction."""
+        """Single-attempt model-driven transaction."""
         self._log_event(PipelineEvent.TASK_STARTED, task.task_id, f"Model-driven task {task.task_id}: '{task.title}'")
 
-        # 1. Read target file snippets
         file_snippets = {}
         for rel_file in task.allowed_files:
             file_path = (self.workspace_path / rel_file.lstrip("/")).resolve()
             if file_path.exists():
                 file_snippets[rel_file] = file_path.read_text(encoding="utf-8")
 
-        # 2. Build ranked token-budgeted context
         context_str = context_builder.build_context(
             task=task,
             file_snippets=file_snippets,
@@ -101,7 +117,6 @@ Do NOT wrap your output in explanations. Output ONLY valid JSON with this struct
         )
         self._log_event(PipelineEvent.CONTEXT_BUILT, task.task_id, "Context assembled and ranked.")
 
-        # 3. Route model (Fast vs Reasoning)
         model_type = ModelRouter.route(
             task=task,
             evidence_confidence=evidence.get("confidence", 1.0) if evidence else 1.0,
@@ -135,22 +150,18 @@ Do NOT wrap your output in explanations. Output ONLY valid JSON with this struct
         events: List[str] = [PipelineEvent.TASK_STARTED.value]
 
         try:
-            # 1. Clean verification & Checkpoint creation
             checkpoint = self.ws.create_checkpoint(task.task_id, allow_untracked=self.allowed_untracked_paths)
             self._log_event(PipelineEvent.CHECKPOINT_CREATED, task.task_id, f"Git checkpoint created: {checkpoint}")
             events.append(PipelineEvent.CHECKPOINT_CREATED.value)
 
-            # 2. Patch Validator
             PatchValidator.validate_proposal(proposal, self.workspace_path)
             self._log_event(PipelineEvent.PATCH_VALIDATED, task.task_id, "Patch structure & hunk applicability verified.")
             events.append(PipelineEvent.PATCH_VALIDATED.value)
 
-            # 3. Scope Guard (Deterministic firewall + AST Guard + Cumulative budgets)
             self.scope_guard.validate(task, proposal, self.workspace_path)
             self._log_event(PipelineEvent.SCOPE_PASSED, task.task_id, "Diff limits, AST checks & security policies passed.")
             events.append(PipelineEvent.SCOPE_PASSED.value)
 
-            # 4. Apply Patch to Filesystem
             for file_patch in proposal.patches:
                 target_file = (self.workspace_path / file_patch.file.lstrip("/")).resolve()
                 target_file.parent.mkdir(parents=True, exist_ok=True)
@@ -173,7 +184,6 @@ Do NOT wrap your output in explanations. Output ONLY valid JSON with this struct
             self._log_event(PipelineEvent.PATCH_APPLIED, task.task_id, f"Applied {len(proposal.patches)} file patch(es).")
             events.append(PipelineEvent.PATCH_APPLIED.value)
 
-            # 5. Sandbox Build
             self._log_event(PipelineEvent.BUILD_STARTED, task.task_id, "Invoking build runner...")
             events.append(PipelineEvent.BUILD_STARTED.value)
             build_res = self.build_runner.build(self.workspace_path)
@@ -201,7 +211,6 @@ Do NOT wrap your output in explanations. Output ONLY valid JSON with this struct
             self._log_event(PipelineEvent.BUILD_PASSED, task.task_id, "Build succeeded.")
             events.append(PipelineEvent.BUILD_PASSED.value)
 
-            # 6. Commit or Dry-run Rollback
             if self.dry_run:
                 self.ws.rollback(checkpoint)
                 self._log_event(PipelineEvent.ROLLBACK, task.task_id, f"[DRY-RUN] Changes verified and rolled back to {checkpoint}")
