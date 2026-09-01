@@ -59,11 +59,9 @@ def test_valid_patch_commit(temp_git_repo: Path):
     assert result.commit_hash is not None
     assert result.failure_type is None
 
-    # Check file content after commit
     content = (temp_git_repo / "Player.cs").read_text(encoding="utf-8")
     assert "// Hooked" in content
 
-    # Verify Git commit message
     res = subprocess.run(["git", "log", "-1", "--pretty=%B"], cwd=temp_git_repo, capture_output=True, text=True)
     assert "[T001] Hook Player.Update logic" in res.stdout
 
@@ -79,7 +77,6 @@ def test_scope_violation_unallowed_file(temp_git_repo: Path):
         max_lines_deleted=5
     )
 
-    # Proposal touches secret.cs which is forbidden
     proposal = PatchProposal(
         patches=[
             FilePatch(
@@ -96,8 +93,6 @@ def test_scope_violation_unallowed_file(temp_git_repo: Path):
     assert result.success is False
     assert result.failure_type == FailureType.SCOPE_VIOLATION.value
     assert "not in allowed_files" in result.error_message
-
-    # Ensure secret.cs was NOT created or committed
     assert not (temp_git_repo / "secret.cs").exists()
     ws = WorkspaceManager(temp_git_repo)
     assert ws.is_clean() is True
@@ -132,7 +127,7 @@ def test_scope_violation_lines_budget(temp_git_repo: Path):
 
     assert result.success is False
     assert result.failure_type == FailureType.SCOPE_VIOLATION.value
-    assert "exceeded task limit" in result.error_message
+    assert "exceeded task budget" in result.error_message
 
 
 def test_patch_invalid_hunk_mismatch(temp_git_repo: Path):

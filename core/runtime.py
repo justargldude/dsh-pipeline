@@ -6,6 +6,7 @@ from rich.logging import RichHandler
 from task.schema import TaskDefinition, PatchProposal, TransactionResult
 from core.workspace import WorkspaceManager, WorkspaceError
 from core.state import PipelineEvent, EventLogEntry
+from safety.policy import SafetyPolicy, SessionBudgetTracker
 from safety.patch_validator import PatchValidator, PatchValidationError
 from safety.scope_guard import ScopeGuard, ScopeViolationError
 from build.sandbox import BaseBuildRunner, MockBuildRunner, BuildResult
@@ -25,12 +26,16 @@ class DSHRuntime:
         self,
         workspace_path: Path,
         build_runner: Optional[BaseBuildRunner] = None,
+        policy: Optional[SafetyPolicy] = None,
         dry_run: bool = False,
         allowed_untracked_paths: Optional[List[str]] = None,
     ):
         self.workspace_path = workspace_path.resolve()
         self.ws = WorkspaceManager(self.workspace_path)
         self.build_runner = build_runner or MockBuildRunner(should_succeed=True)
+        self.policy = policy or SafetyPolicy()
+        self.session_tracker = SessionBudgetTracker(self.policy)
+        self.scope_guard = ScopeGuard(policy=self.policy, session_tracker=self.session_tracker)
         self.dry_run = dry_run
         self.allowed_untracked_paths = allowed_untracked_paths or []
         self.event_log: List[EventLogEntry] = []
@@ -56,14 +61,14 @@ class DSHRuntime:
             self._log_event(PipelineEvent.CHECKPOINT_CREATED, task.task_id, f"Git checkpoint created: {checkpoint}")
             events.append(PipelineEvent.CHECKPOINT_CREATED.value)
 
-            # 2. Patch Validator
+            # 2. Patch Validator (Hunks match & ambiguity check)
             PatchValidator.validate_proposal(proposal, self.workspace_path)
             self._log_event(PipelineEvent.PATCH_VALIDATED, task.task_id, "Patch structure & hunk applicability verified.")
             events.append(PipelineEvent.PATCH_VALIDATED.value)
 
-            # 3. Scope Guard (Deterministic firewall)
-            ScopeGuard.validate(task, proposal, self.workspace_path)
-            self._log_event(PipelineEvent.SCOPE_PASSED, task.task_id, "Diff limits, allowed_files & anti-bypass checks passed.")
+            # 3. Scope Guard (Deterministic firewall + AST Guard + Cumulative budgets)
+            self.scope_guard.validate(task, proposal, self.workspace_path)
+            self._log_event(PipelineEvent.SCOPE_PASSED, task.task_id, "Diff limits, AST checks & security policies passed.")
             events.append(PipelineEvent.SCOPE_PASSED.value)
 
             # 4. Apply Patch to Filesystem
