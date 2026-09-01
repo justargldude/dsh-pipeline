@@ -126,3 +126,23 @@ def test_execute_with_model_malformed_output(temp_git_repo: Path):
 
     assert res.success is False
     assert res.failure_type == FailureType.PATCH_INVALID.value
+
+
+def test_resolve_deepseek_api_key_env(monkeypatch):
+    from model.providers import resolve_deepseek_api_key
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-test-env-key-12345")
+    assert resolve_deepseek_api_key() == "sk-test-env-key-12345"
+
+
+def test_resolve_deepseek_api_key_from_dsh_settings(monkeypatch, tmp_path):
+    from model.providers import resolve_deepseek_api_key
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    
+    # Mock home directory with ~/.dsh/settings.yaml
+    dsh_dir = tmp_path / ".dsh"
+    dsh_dir.mkdir()
+    settings_file = dsh_dir / "settings.yaml"
+    settings_file.write_text("deepseek_api_key: sk-dsh-settings-key-9999\n", encoding="utf-8")
+    
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    assert resolve_deepseek_api_key() == "sk-dsh-settings-key-9999"

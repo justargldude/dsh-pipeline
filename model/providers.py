@@ -1,11 +1,62 @@
 import json
+import os
 import re
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Optional
 import httpx
+import yaml
 from pydantic import ValidationError
 from model.schemas import ModelRequest, ModelResponse, ModelType
 from task.schema import PatchProposal
+
+
+def resolve_deepseek_api_key() -> Optional[str]:
+    """Auto-sync API key from DeepSeek Harness configuration or Environment."""
+    # 1. Environment Variable
+    if os.environ.get("DEEPSEEK_API_KEY"):
+        return os.environ["DEEPSEEK_API_KEY"].strip()
+
+    # 2. DeepSeek Harness settings.yaml (~/.dsh/settings.yaml)
+    dsh_settings = Path.home() / ".dsh" / "settings.yaml"
+    if dsh_settings.exists():
+        try:
+            with open(dsh_settings, "r", encoding="utf-8") as f:
+                data = yaml.safe_load(f) or {}
+                if isinstance(data, dict):
+                    if "deepseek_api_key" in data:
+                        return str(data["deepseek_api_key"]).strip()
+                    if "apiKey" in data:
+                        return str(data["apiKey"]).strip()
+                    models = data.get("models", {})
+                    if isinstance(models, dict):
+                        for k, v in models.items():
+                            if "deepseek" in k.lower() and isinstance(v, dict) and "apiKey" in v:
+                                return str(v["apiKey"]).strip()
+        except Exception:
+            pass
+
+    # 3. DeepSeek Harness .env file (~/.dsh/.env)
+    dsh_env = Path.home() / ".dsh" / ".env"
+    if dsh_env.exists():
+        try:
+            for line in dsh_env.read_text(encoding="utf-8").splitlines():
+                if line.startswith("DEEPSEEK_API_KEY="):
+                    return line.split("=", 1)[1].strip("\"' ")
+        except Exception:
+            pass
+
+    # 4. Local workspace .env
+    local_env = Path(".env")
+    if local_env.exists():
+        try:
+            for line in local_env.read_text(encoding="utf-8").splitlines():
+                if line.startswith("DEEPSEEK_API_KEY="):
+                    return line.split("=", 1)[1].strip("\"' ")
+        except Exception:
+            pass
+
+    return None
 
 
 class BaseModelProvider(ABC):
@@ -17,13 +68,11 @@ class BaseModelProvider(ABC):
     def extract_patch_proposal(raw_text: str) -> Optional[PatchProposal]:
         """Robustly extracts and validates JSON PatchProposal from model response."""
         try:
-            # 1. Try direct JSON parse
             data = json.loads(raw_text)
             return PatchProposal(**data)
         except Exception:
             pass
 
-        # 2. Try markdown json fence extraction
         json_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", raw_text, re.DOTALL)
         if json_match:
             try:
@@ -69,19 +118,29 @@ class MockModelProvider(BaseModelProvider):
 class OpenAICompatibleProvider(BaseModelProvider):
     def __init__(
         self,
-        api_key: str,
+        api_key: Optional[str] = None,
         base_url: str = "https://api.deepseek.com/v1",
         fast_model: str = "deepseek-chat",
         reasoning_model: str = "deepseek-reasoner",
         timeout_seconds: int = 60,
     ):
-        self.api_key = api_key
+        self.api_key = api_key or resolve_deepseek_api_key() or ""
         self.base_url = base_url.rstrip("/")
         self.fast_model = fast_model
         self.reasoning_model = reasoning_model
         self.timeout = timeout_seconds
 
     def generate(self, req: ModelRequest) -> ModelResponse:
+        key = self.api_key or resolve_deepseek_api_key()
+        if not key:
+            return ModelResponse(
+                raw_content="",
+                patch_proposal=None,
+                tokens_used=0,
+                model_name=self.fast_model,
+                error="No DeepSeek API key found. Please set DEEPSEEK_API_KEY or configure in DeepSeek Harness (~/.dsh/settings.yaml).",
+            )
+
         model_name = self.reasoning_model if req.model_type == ModelType.REASONING else self.fast_model
 
         payload = {
@@ -97,7 +156,7 @@ class OpenAICompatibleProvider(BaseModelProvider):
             payload["response_format"] = {"type": "json_object"}
 
         headers = {
-            "Authorization": f"Bearer {self.api_key}",
+            "Authorization": f"Bearer {key}",
             "Content-Type": "application/json",
         }
 
