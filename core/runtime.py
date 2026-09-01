@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from rich.logging import RichHandler
 
 from task.schema import TaskDefinition, PatchProposal, TransactionResult
@@ -11,6 +11,10 @@ from safety.patch_validator import PatchValidator, PatchValidationError
 from safety.scope_guard import ScopeGuard, ScopeViolationError
 from build.sandbox import BaseBuildRunner, MockBuildRunner, BuildResult
 from recovery.classifier import FailureClassifier, FailureType
+from model.schemas import ModelRequest, ModelResponse, ModelType
+from model.providers import BaseModelProvider
+from model.router import ModelRouter
+from context.builder import ContextBuilder
 
 logging.basicConfig(
     level="INFO",
@@ -22,6 +26,26 @@ logger = logging.getLogger("dsh.runtime")
 
 
 class DSHRuntime:
+    SYSTEM_PROMPT = """You are a deterministic code patch engine.
+Your sole job is to produce a valid JSON object matching the PatchProposal schema.
+Do NOT wrap your output in explanations. Output ONLY valid JSON with this structure:
+{
+  "patches": [
+    {
+      "file": "src/Player.cs",
+      "hunks": [
+        {
+          "old_text": "...",
+          "new_text": "..."
+        }
+      ]
+    }
+  ],
+  "reason": "...",
+  "confidence": 0.95
+}
+"""
+
     def __init__(
         self,
         workspace_path: Path,
@@ -50,8 +74,63 @@ class DSHRuntime:
         self.event_log.append(entry)
         logger.info(f"[bold cyan][{event.value}][/bold cyan] {message}")
 
+    def execute_with_model(
+        self,
+        task: TaskDefinition,
+        provider: BaseModelProvider,
+        context_builder: ContextBuilder,
+        evidence: Optional[Dict[str, Any]] = None,
+        previous_failure: Optional[str] = None,
+    ) -> TransactionResult:
+        """End-to-end model-driven transaction."""
+        self._log_event(PipelineEvent.TASK_STARTED, task.task_id, f"Model-driven task {task.task_id}: '{task.title}'")
+
+        # 1. Read target file snippets
+        file_snippets = {}
+        for rel_file in task.allowed_files:
+            file_path = (self.workspace_path / rel_file.lstrip("/")).resolve()
+            if file_path.exists():
+                file_snippets[rel_file] = file_path.read_text(encoding="utf-8")
+
+        # 2. Build ranked token-budgeted context
+        context_str = context_builder.build_context(
+            task=task,
+            file_snippets=file_snippets,
+            evidence=evidence,
+            previous_failure=previous_failure,
+        )
+        self._log_event(PipelineEvent.CONTEXT_BUILT, task.task_id, "Context assembled and ranked.")
+
+        # 3. Route model (Fast vs Reasoning)
+        model_type = ModelRouter.route(
+            task=task,
+            evidence_confidence=evidence.get("confidence", 1.0) if evidence else 1.0,
+        )
+        self._log_event(PipelineEvent.MODEL_REQUEST, task.task_id, f"Querying model [{model_type.value}]...")
+
+        req = ModelRequest(
+            system_prompt=self.SYSTEM_PROMPT,
+            user_prompt=context_str,
+            model_type=model_type,
+        )
+        resp = provider.generate(req)
+        self._log_event(PipelineEvent.MODEL_RESPONSE, task.task_id, f"Model responded with {resp.tokens_used} tokens.")
+
+        if not resp.patch_proposal:
+            self._log_event(PipelineEvent.FAILURE_CLASSIFIED, task.task_id, f"Model output is not valid JSON PatchProposal: {resp.error or resp.raw_content[:200]}")
+            return TransactionResult(
+                task_id=task.task_id,
+                success=False,
+                failure_type=FailureType.PATCH_INVALID.value,
+                error_message=f"Model failed to generate valid PatchProposal JSON. Raw: {resp.raw_content[:200]}",
+                dry_run=self.dry_run,
+                events=[PipelineEvent.TASK_STARTED.value, PipelineEvent.MODEL_RESPONSE.value, PipelineEvent.FAILURE_CLASSIFIED.value],
+            )
+
+        return self.execute_transaction(task, resp.patch_proposal)
+
     def execute_transaction(self, task: TaskDefinition, proposal: PatchProposal) -> TransactionResult:
-        self._log_event(PipelineEvent.TASK_STARTED, task.task_id, f"Starting task {task.task_id}: '{task.title}'")
+        self._log_event(PipelineEvent.TASK_STARTED, task.task_id, f"Executing transaction for {task.task_id}: '{task.title}'")
         checkpoint = None
         events: List[str] = [PipelineEvent.TASK_STARTED.value]
 
@@ -61,7 +140,7 @@ class DSHRuntime:
             self._log_event(PipelineEvent.CHECKPOINT_CREATED, task.task_id, f"Git checkpoint created: {checkpoint}")
             events.append(PipelineEvent.CHECKPOINT_CREATED.value)
 
-            # 2. Patch Validator (Hunks match & ambiguity check)
+            # 2. Patch Validator
             PatchValidator.validate_proposal(proposal, self.workspace_path)
             self._log_event(PipelineEvent.PATCH_VALIDATED, task.task_id, "Patch structure & hunk applicability verified.")
             events.append(PipelineEvent.PATCH_VALIDATED.value)
