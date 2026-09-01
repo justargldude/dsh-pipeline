@@ -4,6 +4,7 @@ from task.schema import TaskDefinition
 from recon.evidence import EvidenceService
 from context.budget import ContextComplexity, TokenBudgetManager
 from context.ranking import ContextItem, ContextRanker, PriorityLevel
+from memory.episodic import EpisodeRecord
 
 
 class ContextBuilder:
@@ -16,6 +17,7 @@ class ContextBuilder:
         file_snippets: Dict[str, str],
         evidence: Optional[Dict[str, Any]] = None,
         previous_failure: Optional[str] = None,
+        advisory_episodes: Optional[List[EpisodeRecord]] = None,
         complexity: ContextComplexity = ContextComplexity.NORMAL,
     ) -> str:
         budget = TokenBudgetManager.get_budget(complexity)
@@ -41,11 +43,29 @@ class ContextBuilder:
                 )
             )
 
-        # 3. Previous failure / Recovery details (Priority 3 if recovery)
-        if previous_failure:
+        # 3. Advisory Episodes from Memory (Priority 6)
+        if advisory_episodes:
+            ep_texts = []
+            for ep in advisory_episodes:
+                status_tag = f"[{ep.status.value}]"
+                ep_texts.append(
+                    f"- Historical Task: {ep.task_id} ({status_tag}) for symbol '{ep.symbol}'\n"
+                    f"  Version: {ep.version}, Confidence: {ep.confidence}\n"
+                    f"  Patch:\n```json\n{ep.solution_patch.model_dump_json(indent=2)}\n```"
+                )
             raw_items.append(
                 ContextItem(
                     priority=PriorityLevel.PREVIOUS_VALIDATED_FIX,
+                    category="ADVISORY_MEMORY",
+                    content="### [ADVISORY MEMORY (HISTORICAL PASSED EPISODES)]\n" + "\n".join(ep_texts) + "\n",
+                )
+            )
+
+        # 4. Previous failure / Recovery details (Priority 5)
+        if previous_failure:
+            raw_items.append(
+                ContextItem(
+                    priority=PriorityLevel.RELEVANT_DIFF,
                     category="FAILURE_HISTORY",
                     content=f"### [PREVIOUS FAILURE HISTORY]\n{previous_failure}\n",
                 )
