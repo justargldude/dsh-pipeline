@@ -10,6 +10,11 @@ class ContextComplexity(str, Enum):
     RECOVERY = "recovery"
 
 
+class ContextBudgetExceededError(Exception):
+    """Raised when mandatory context (task definition + target source) exceeds available token budget."""
+    pass
+
+
 class TokenBudgetManager:
     DEFAULT_BUDGETS: Dict[ContextComplexity, int] = {
         ContextComplexity.SIMPLE: 3000,
@@ -18,9 +23,19 @@ class TokenBudgetManager:
         ContextComplexity.RECOVERY: 8000,
     }
 
+    RESERVED_SYSTEM_PROMPT_TOKENS: int = 200
+    RESERVED_OUTPUT_TOKENS: int = 800
+
     @classmethod
     def get_budget(cls, complexity: ContextComplexity = ContextComplexity.NORMAL) -> int:
         return cls.DEFAULT_BUDGETS.get(complexity, 6000)
+
+    @classmethod
+    def compute_available_budget(cls, complexity: ContextComplexity = ContextComplexity.NORMAL) -> int:
+        """Computes available context budget after reserving tokens for system prompt and model output."""
+        total = cls.get_budget(complexity)
+        reserved = cls.RESERVED_SYSTEM_PROMPT_TOKENS + cls.RESERVED_OUTPUT_TOKENS
+        return max(500, total - reserved)
 
     @staticmethod
     def estimate_tokens(text: str) -> int:

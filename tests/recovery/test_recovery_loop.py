@@ -6,7 +6,9 @@ import pytest
 from task.schema import TaskDefinition, PatchProposal, FilePatch, PatchHunk
 from model.schemas import ModelRequest, ModelResponse, ModelType
 from model.providers import BaseModelProvider
+from recovery.classifier import FailureType
 from context.builder import ContextBuilder
+
 from core.runtime import DSHRuntime
 
 
@@ -44,7 +46,7 @@ def temp_git_repo(tmp_path: Path):
 
 
 def test_recovery_success_attempt_1(temp_git_repo: Path):
-    runtime = DSHRuntime(temp_git_repo, dry_run=False)
+    runtime = DSHRuntime(temp_git_repo, dry_run=False, test_mode=True)
     context_builder = ContextBuilder()
 
     task = TaskDefinition(
@@ -73,7 +75,7 @@ def test_recovery_success_attempt_1(temp_git_repo: Path):
 
 
 def test_recovery_success_attempt_2(temp_git_repo: Path):
-    runtime = DSHRuntime(temp_git_repo, dry_run=False)
+    runtime = DSHRuntime(temp_git_repo, dry_run=False, test_mode=True)
     context_builder = ContextBuilder()
 
     task = TaskDefinition(
@@ -82,13 +84,13 @@ def test_recovery_success_attempt_2(temp_git_repo: Path):
         allowed_files=["Player.cs"],
     )
 
-    # Attempt 0: invalid hunk
+    # Attempt 0: invalid hunk (old_text mismatch)
     bad_patch_0 = PatchProposal(
-        patches=[FilePatch(file="Player.cs", hunks=[PatchHunk(old_text="non_existent()", new_text="")])]
+        patches=[FilePatch(file="Player.cs", hunks=[PatchHunk(old_text="non_existent_0()", new_text="")])]
     )
-    # Attempt 1: unallowed file
+    # Attempt 1: invalid hunk (old_text mismatch)
     bad_patch_1 = PatchProposal(
-        patches=[FilePatch(file="Secret.cs", hunks=[PatchHunk(old_text="", new_text="// bad")])]
+        patches=[FilePatch(file="Player.cs", hunks=[PatchHunk(old_text="non_existent_1()", new_text="")])]
     )
     # Attempt 2: valid patch
     good_patch_2 = PatchProposal(
@@ -110,8 +112,36 @@ def test_recovery_success_attempt_2(temp_git_repo: Path):
     assert "// Fixed Attempt 2" in (temp_git_repo / "Player.cs").read_text()
 
 
+def test_recovery_hard_stop_on_scope_violation(temp_git_repo: Path):
+    runtime = DSHRuntime(temp_git_repo, dry_run=False, test_mode=True)
+    context_builder = ContextBuilder()
+
+    task = TaskDefinition(
+        task_id="T_REC_HARD_STOP",
+        title="Hard stop on scope violation",
+        allowed_files=["Player.cs"],
+    )
+
+    # Attempt 0: unauthorized file -> SCOPE_VIOLATION (Hard stop)
+    bad_patch = PatchProposal(
+        patches=[FilePatch(file="Secret.cs", hunks=[PatchHunk(old_text="", new_text="// bad")])]
+    )
+    good_patch = PatchProposal(
+        patches=[FilePatch(file="Player.cs", hunks=[PatchHunk(old_text="    public void Update() {}", new_text="// good")])]
+    )
+
+    provider = SequenceMockProvider(responses=[bad_patch, good_patch])
+
+    res = runtime.execute_with_recovery(task, provider=provider, context_builder=context_builder)
+    # Must immediately halt on Attempt 0 without retrying Attempt 1
+    assert res.success is False
+    assert res.failure_type == FailureType.SCOPE_VIOLATION.value
+    assert provider.call_count == 1
+
+
+
 def test_recovery_hard_halt(temp_git_repo: Path):
-    runtime = DSHRuntime(temp_git_repo, dry_run=False)
+    runtime = DSHRuntime(temp_git_repo, dry_run=False, test_mode=True)
     context_builder = ContextBuilder()
 
     task = TaskDefinition(

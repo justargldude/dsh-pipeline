@@ -1,15 +1,188 @@
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
+from pydantic import BaseModel, Field
+
 from task.schema import TaskDefinition
 from recon.evidence import EvidenceService
-from context.budget import ContextComplexity, TokenBudgetManager
+from context.budget import ContextComplexity, TokenBudgetManager, ContextBudgetExceededError
 from context.ranking import ContextItem, ContextRanker, PriorityLevel
-from memory.episodic import EpisodeRecord
+from context.extractor import SymbolExtractor, ExtractedSourceResult
+from memory.episodic import EpisodeRecord, EpisodeStatus
+
+
+class ContextManifest(BaseModel):
+    total_budget: int
+    available_budget: int
+    used_tokens: int
+    mandatory_sections: List[str] = Field(default_factory=list)
+    optional_sections_included: List[str] = Field(default_factory=list)
+    omitted_sections: List[Dict[str, Any]] = Field(default_factory=list)
+    target_source_truncated: bool = False
+    extraction_method: str = "full_source"
 
 
 class ContextBuilder:
     def __init__(self, evidence_service: Optional[EvidenceService] = None):
         self.evidence_service = evidence_service
+        self.symbol_extractor = SymbolExtractor()
+        self.last_manifest: Optional[ContextManifest] = None
+
+    def build_context_with_manifest(
+        self,
+        task: TaskDefinition,
+        file_snippets: Dict[str, str],
+        evidence: Optional[Dict[str, Any]] = None,
+        previous_failure: Optional[str] = None,
+        advisory_episodes: Optional[List[EpisodeRecord]] = None,
+        caller_context: Optional[Dict[str, Any]] = None,
+        complexity: ContextComplexity = ContextComplexity.NORMAL,
+    ) -> Tuple[str, ContextManifest]:
+        """Deterministically constructs model prompt context while guaranteeing mandatory items
+        (task definition, target source, target symbols) are protected from optional items.
+        """
+        total_budget = TokenBudgetManager.get_budget(complexity)
+        available_budget = TokenBudgetManager.compute_available_budget(complexity)
+
+        mandatory_items: List[ContextItem] = []
+        optional_items: List[ContextItem] = []
+
+        # 1. MANDATORY: Task Definition
+        symbols_str = f"Target Symbols: {', '.join(task.target_symbols)}\n" if task.target_symbols else ""
+        task_header_content = (
+            f"# TASK OBJECTIVE: [{task.task_id}] {task.title}\n"
+            f"Allowed Files: {', '.join(task.allowed_files)}\n"
+            f"{symbols_str}"
+            f"Line Budget: +{task.max_lines_added} / -{task.max_lines_deleted}\n"
+            f"Risk Level: {task.risk.value.upper()}\n"
+            "---"
+        )
+        task_item = ContextItem(
+            priority=PriorityLevel.TASK_DEFINITION,
+            category="TASK_DEFINITION",
+            content=task_header_content,
+        )
+        mandatory_items.append(task_item)
+
+        # 2. MANDATORY: Target Source Files / Symbol Extractions
+        target_source_truncated = False
+        extraction_method = "none"
+
+        # Calculate max tokens reserved for target source files
+        reserved_source_budget = max(400, available_budget - task_item.token_cost - 300)
+
+        for fname, snippet in file_snippets.items():
+            ext_res: ExtractedSourceResult = self.symbol_extractor.extract_relevant_source(
+                source_code=snippet,
+                target_symbols=task.target_symbols if task.target_symbols else None,
+                max_tokens=reserved_source_budget,
+                file_name=fname,
+            )
+            if ext_res.is_truncated:
+                target_source_truncated = True
+            extraction_method = ext_res.extraction_method
+
+            source_item = ContextItem(
+                priority=PriorityLevel.TARGET_SOURCE,
+                category=f"TARGET_SOURCE:{fname}",
+                content=f"### [SOURCE FILE: {fname}]\n```csharp\n{ext_res.extracted_code}\n```\n",
+            )
+            mandatory_items.append(source_item)
+
+        # Check if mandatory items exceed available budget
+        mandatory_cost = sum(it.token_cost for it in mandatory_items)
+        if mandatory_cost > available_budget:
+            raise ContextBudgetExceededError(
+                f"Context budget exceeded: Mandatory items require {mandatory_cost} tokens, "
+                f"but available budget is {available_budget} (Total: {total_budget})."
+            )
+
+        # 3. IMPORTANT: Caller & Callee Context
+        if caller_context:
+            optional_items.append(
+                ContextItem(
+                    priority=PriorityLevel.DIRECT_CALLERS_CALLEES,
+                    category="CALLER_CALLEE_GRAPH",
+                    content=f"### [CALL GRAPH CONTEXT]\n```json\n{json.dumps(caller_context, indent=2)}\n```\n",
+                )
+            )
+
+        # 4. IMPORTANT: Recon Evidence / Facts
+        if evidence:
+            optional_items.append(
+                ContextItem(
+                    priority=PriorityLevel.RELEVANT_EVIDENCE,
+                    category="RECON_EVIDENCE",
+                    content=f"### [RECON EVIDENCE (FACTS)]\n```json\n{json.dumps(evidence, indent=2)}\n```\n",
+                )
+            )
+
+        # 5. OPTIONAL: Failure History
+        if previous_failure:
+            optional_items.append(
+                ContextItem(
+                    priority=PriorityLevel.FAILURE_HISTORY,
+                    category="FAILURE_HISTORY",
+                    content=f"### [PREVIOUS FAILURE HISTORY]\n{previous_failure}\n",
+                )
+            )
+
+        # 6. OPTIONAL: Advisory Memory (Validated historical episodes)
+        if advisory_episodes:
+            # Filter only validated episodes
+            validated_eps = [ep for ep in advisory_episodes if ep.status == EpisodeStatus.VALIDATED]
+            if validated_eps:
+                ep_texts = []
+                for ep in validated_eps:
+                    # Concise patch summary instead of full raw json dump
+                    modified_files = [p.file for p in ep.solution_patch.patches]
+                    hunk_count = sum(len(p.hunks) for p in ep.solution_patch.patches)
+                    ep_texts.append(
+                        f"- Task {ep.task_id} (Version: {ep.version}, Confidence: {ep.confidence:.2f})\n"
+                        f"  Target Symbol: {ep.symbol}\n"
+                        f"  Summary: Patched {len(modified_files)} file(s) ({', '.join(modified_files)}), {hunk_count} hunk(s)\n"
+                        f"  Reason: {ep.solution_patch.reason or 'Passed validation'}\n"
+                        f"  Validation: Build=Pass, Behavior=Pass, Regression=Pass"
+                    )
+                optional_items.append(
+                    ContextItem(
+                        priority=PriorityLevel.ADVISORY_MEMORY,
+                        category="ADVISORY_MEMORY",
+                        content="### [ADVISORY MEMORY (HISTORICAL PASSED EPISODES)]\n" + "\n\n".join(ep_texts) + "\n",
+                    )
+                )
+
+        # Combine all items and rank/trim
+        all_items = mandatory_items + optional_items
+        selected_items, omitted_items = ContextRanker.rank_and_trim_detailed(
+            items=all_items,
+            token_budget=available_budget,
+        )
+
+        # Assemble final context string
+        context_parts = [it.content for it in selected_items]
+        final_context = "\n".join(context_parts)
+
+        # Build manifest
+        manifest = ContextManifest(
+            total_budget=total_budget,
+            available_budget=available_budget,
+            used_tokens=sum(it.token_cost for it in selected_items),
+            mandatory_sections=[it.category for it in mandatory_items],
+            optional_sections_included=[it.category for it in selected_items if it.priority.value > 3],
+            omitted_sections=[
+                {
+                    "category": it.category,
+                    "priority": it.priority.name,
+                    "token_cost": it.token_cost,
+                    "reason": "budget_exhausted",
+                }
+                for it in omitted_items
+            ],
+            target_source_truncated=target_source_truncated,
+            extraction_method=extraction_method,
+        )
+        self.last_manifest = manifest
+        return final_context, manifest
 
     def build_context(
         self,
@@ -20,68 +193,13 @@ class ContextBuilder:
         advisory_episodes: Optional[List[EpisodeRecord]] = None,
         complexity: ContextComplexity = ContextComplexity.NORMAL,
     ) -> str:
-        budget = TokenBudgetManager.get_budget(complexity)
-        raw_items: List[ContextItem] = []
-
-        # 1. Target symbol evidence (Priority 1)
-        if evidence:
-            raw_items.append(
-                ContextItem(
-                    priority=PriorityLevel.TARGET_SYMBOL_EVIDENCE,
-                    category="EVIDENCE_FACTS",
-                    content=f"### [RECON EVIDENCE (FACTS)]\n```json\n{json.dumps(evidence, indent=2)}\n```\n",
-                )
-            )
-
-        # 2. File snippets / Target code (Priority 2)
-        for fname, snippet in file_snippets.items():
-            raw_items.append(
-                ContextItem(
-                    priority=PriorityLevel.DIRECT_CALLERS_CALLEES,
-                    category="TARGET_SOURCE",
-                    content=f"### [SOURCE FILE: {fname}]\n```csharp\n{snippet}\n```\n",
-                )
-            )
-
-        # 3. Advisory Episodes from Memory (Priority 6)
-        if advisory_episodes:
-            ep_texts = []
-            for ep in advisory_episodes:
-                status_tag = f"[{ep.status.value}]"
-                ep_texts.append(
-                    f"- Historical Task: {ep.task_id} ({status_tag}) for symbol '{ep.symbol}'\n"
-                    f"  Version: {ep.version}, Confidence: {ep.confidence}\n"
-                    f"  Patch:\n```json\n{ep.solution_patch.model_dump_json(indent=2)}\n```"
-                )
-            raw_items.append(
-                ContextItem(
-                    priority=PriorityLevel.PREVIOUS_VALIDATED_FIX,
-                    category="ADVISORY_MEMORY",
-                    content="### [ADVISORY MEMORY (HISTORICAL PASSED EPISODES)]\n" + "\n".join(ep_texts) + "\n",
-                )
-            )
-
-        # 4. Previous failure / Recovery details (Priority 5)
-        if previous_failure:
-            raw_items.append(
-                ContextItem(
-                    priority=PriorityLevel.RELEVANT_DIFF,
-                    category="FAILURE_HISTORY",
-                    content=f"### [PREVIOUS FAILURE HISTORY]\n{previous_failure}\n",
-                )
-            )
-
-        # Rank and trim to fit budget
-        selected = ContextRanker.rank_and_trim(raw_items, token_budget=budget)
-
-        # Assemble final context string
-        context_parts = [
-            f"# TASK OBJECTIVE: [{task.task_id}] {task.title}",
-            f"Allowed Files: {', '.join(task.allowed_files)}",
-            f"Line Budget: +{task.max_lines_added} / -{task.max_lines_deleted}",
-            "---",
-        ]
-        for it in selected:
-            context_parts.append(it.content)
-
-        return "\n".join(context_parts)
+        """Standard entry point returning the prompt context string."""
+        context_str, manifest = self.build_context_with_manifest(
+            task=task,
+            file_snippets=file_snippets,
+            evidence=evidence,
+            previous_failure=previous_failure,
+            advisory_episodes=advisory_episodes,
+            complexity=complexity,
+        )
+        return context_str

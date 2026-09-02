@@ -42,14 +42,16 @@ def test_store_and_retrieve_episode(memory_store):
     assert episodes[0].confidence == 0.96
 
 
-def test_stale_detection(memory_store):
+def test_stale_detection_and_exclusion(memory_store):
     retriever = EpisodeRetriever(memory_store)
-    # Query for version v250 (different from stored v246)
-    episodes = retriever.retrieve_advisory_episodes("Player.Update", current_version="v250")
+    # Stale episode is excluded by default
+    episodes_default = retriever.retrieve_advisory_episodes("Player.Update", current_version="v250")
+    assert len(episodes_default) == 0
 
-    assert len(episodes) == 1
-    # Must be marked STALE
-    assert episodes[0].status == EpisodeStatus.STALE
+    # Stale episode can be retrieved if explicitly requested
+    episodes_stale = retriever.retrieve_advisory_episodes("Player.Update", current_version="v250", include_stale=True)
+    assert len(episodes_stale) == 1
+    assert episodes_stale[0].status == EpisodeStatus.STALE
 
 
 def test_context_builder_with_advisory_memory(memory_store):
@@ -70,5 +72,5 @@ def test_context_builder_with_advisory_memory(memory_store):
     )
 
     assert "ADVISORY MEMORY (HISTORICAL PASSED EPISODES)" in context
-    assert "Historical Task: T016" in context
-    assert "[VALIDATED]" in context
+    assert "Task T016" in context
+    assert "Patched 1 file(s)" in context

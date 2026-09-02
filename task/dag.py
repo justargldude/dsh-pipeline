@@ -1,5 +1,5 @@
 from collections import defaultdict, deque
-from typing import Dict, List, Set
+from typing import Dict, List, Optional, Set
 from task.schema import TaskDefinition
 
 
@@ -18,6 +18,10 @@ class TaskDAG:
         self.in_degree: Dict[str, int] = defaultdict(int)
 
     def add_task(self, task: TaskDefinition):
+        if not task.task_id or not task.task_id.strip():
+            raise ValueError("Task ID cannot be empty.")
+        if task.task_id in self.tasks:
+            raise ValueError(f"Duplicate task ID '{task.task_id}' detected in Task DAG.")
         self.tasks[task.task_id] = task
 
     def build_and_validate(self):
@@ -58,10 +62,28 @@ class TaskDAG:
         for task_id in self.tasks:
             self.in_degree[task_id] = len(self.tasks[task_id].dependencies)
 
-    def get_ready_tasks(self, completed_task_ids: Set[str], active_task_ids: Set[str]) -> List[TaskDefinition]:
+    def get_descendants(self, task_id: str) -> Set[str]:
+        """Returns the set of all downstream tasks that depend on task_id directly or indirectly."""
+        descendants: Set[str] = set()
+        queue = deque([task_id])
+        while queue:
+            curr = queue.popleft()
+            for neighbor in self.adj_list.get(curr, []):
+                if neighbor not in descendants:
+                    descendants.add(neighbor)
+                    queue.append(neighbor)
+        return descendants
+
+    def get_ready_tasks(
+        self,
+        completed_task_ids: Set[str],
+        active_task_ids: Set[str],
+        blocked_task_ids: Optional[Set[str]] = None,
+    ) -> List[TaskDefinition]:
         ready = []
+        blocked = blocked_task_ids or set()
         for task_id, task in self.tasks.items():
-            if task_id in completed_task_ids or task_id in active_task_ids:
+            if task_id in completed_task_ids or task_id in active_task_ids or task_id in blocked:
                 continue
             # Check if all dependencies are satisfied
             if all(dep in completed_task_ids for dep in task.dependencies):

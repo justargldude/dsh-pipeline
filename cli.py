@@ -1,4 +1,5 @@
 import json
+import shlex
 import subprocess
 from pathlib import Path
 from typing import Optional
@@ -7,6 +8,7 @@ from rich.console import Console
 from rich.table import Table
 
 from task.schema import TaskDefinition, PatchProposal, FilePatch, PatchHunk
+from core.config import PipelineConfig
 from core.runtime import DSHRuntime
 from build.sandbox import MockBuildRunner, SubprocessBuildRunner
 
@@ -19,6 +21,8 @@ def run(
     task_file: Path = typer.Option(..., "--task", "-t", help="Path to Task JSON/YAML definition"),
     patch_file: Path = typer.Option(..., "--patch", "-p", help="Path to Patch Proposal JSON"),
     repo_path: Path = typer.Option(Path("."), "--repo", "-r", help="Path to target Git repository"),
+    build_cmd: Optional[str] = typer.Option(None, "--build-cmd", "-b", help="Trusted build command to execute"),
+    test_cmd: Optional[str] = typer.Option(None, "--test-cmd", help="Trusted regression test command to execute"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Run validation and apply in sandbox without commit"),
 ):
     """Execute a single-task patch transaction."""
@@ -38,7 +42,13 @@ def run(
         patch_data = json.load(f)
         proposal = PatchProposal(**patch_data)
 
-    runtime = DSHRuntime(repo_path, dry_run=dry_run)
+    config = PipelineConfig(workspace_root=repo_path.resolve())
+    if build_cmd:
+        config.build_command = shlex.split(build_cmd)
+    if test_cmd:
+        config.test_command = shlex.split(test_cmd)
+
+    runtime = DSHRuntime(repo_path, config=config, dry_run=dry_run)
     result = runtime.execute_transaction(task, proposal)
 
     table = Table(title=f"Transaction Result: {task.task_id}")
@@ -49,6 +59,8 @@ def run(
     table.add_row("Dry Run", str(result.dry_run))
     if result.commit_hash:
         table.add_row("Commit", result.commit_hash)
+    if result.base_commit:
+        table.add_row("Base Commit", result.base_commit)
     if result.failure_type:
         table.add_row("Failure Type", f"[bold red]{result.failure_type}[/bold red]")
     if result.error_message:
@@ -78,7 +90,8 @@ def demo(
         subprocess.run(["git", "add", "."], cwd=repo_path, check=True)
         subprocess.run(["git", "commit", "-m", "Initial demo file"], cwd=repo_path, check=True)
 
-        runtime = DSHRuntime(repo_path, dry_run=dry_run)
+        # Demo explicitly uses test_mode to inject mock build runner for demonstration
+        runtime = DSHRuntime(repo_path, dry_run=dry_run, test_mode=True)
 
         task = TaskDefinition(
             task_id="T_DEMO_01",
@@ -110,3 +123,4 @@ def demo(
 
 if __name__ == "__main__":
     app()
+

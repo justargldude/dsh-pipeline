@@ -7,9 +7,10 @@ from task.schema import TaskDefinition, PatchProposal
 from safety.scope_guard import ScopeGuard
 from build.sandbox import BaseBuildRunner, BuildResult
 from validation.structural import StructuralValidator
-from validation.behavioral import BaseBehavioralValidator, MockBehavioralValidator
-from validation.regression import BaseRegressionValidator, MockRegressionValidator
+from validation.behavioral import BaseBehavioralValidator
+from validation.regression import BaseRegressionValidator
 from validation.risk import RiskValidator
+from validation.baseline import BaselineState, BaselineManager
 from recovery.classifier import FailureClassifier, FailureType
 
 
@@ -35,8 +36,8 @@ class ValidationPipeline:
         behavioral_validator: Optional[BaseBehavioralValidator] = None,
         regression_validator: Optional[BaseRegressionValidator] = None,
     ):
-        self.behavioral_validator = behavioral_validator or MockBehavioralValidator(should_succeed=True)
-        self.regression_validator = regression_validator or MockRegressionValidator(should_succeed=True)
+        self.behavioral_validator = behavioral_validator
+        self.regression_validator = regression_validator
 
     def validate_pre_apply(
         self,
@@ -44,12 +45,14 @@ class ValidationPipeline:
         proposal: PatchProposal,
         repo_path: Path,
         scope_guard: ScopeGuard,
+        reservation_id: Optional[str] = None,
     ) -> ValidationReport:
         """Runs T0 Structural and T4 Risk BEFORE modifying files."""
         # 1. T0 - Structural
         try:
-            StructuralValidator.validate(task, proposal, repo_path, scope_guard)
+            StructuralValidator.validate(task, proposal, repo_path, scope_guard, reservation_id=reservation_id)
         except Exception as e:
+
             f_type = FailureClassifier.classify_exception(e)
             return ValidationReport(
                 success=False,
@@ -59,7 +62,7 @@ class ValidationPipeline:
             )
 
         # 2. T4 - Risk
-        risk_res = RiskValidator.validate_risk(task, proposal, repo_path)
+        risk_res = RiskValidator.validate_risk(task, proposal, repo_path, policy=scope_guard.policy)
         if not risk_res.success:
             return ValidationReport(
                 success=False,
@@ -76,40 +79,80 @@ class ValidationPipeline:
         task: TaskDefinition,
         repo_path: Path,
         build_runner: BaseBuildRunner,
+        baseline: Optional[BaselineState] = None,
     ) -> ValidationReport:
-        """Runs T1 Build, T2 Behavioral, T3 Regression AFTER applying patch."""
+        """Runs T1 Build, T2 Behavioral, T3 Regression AFTER applying patch, comparing against baseline."""
         # 3. T1 - Build
-        build_res: BuildResult = build_runner.build(repo_path)
-        if not build_res.success:
-            f_type = FailureClassifier.classify_build_failure(build_res)
-            err = "\n".join([e.message for e in build_res.errors]) or build_res.raw_output
-            return ValidationReport(
-                success=False,
-                failed_tier=ValidationTier.T1_BUILD,
-                failure_type=f_type,
-                error_message=f"[T1 Build Failure] {err}",
-            )
+        post_build: BuildResult = build_runner.build(repo_path)
+        if baseline is not None:
+            is_regression, has_error, msg = BaselineManager.compare_build(baseline.build_result, post_build)
+            if is_regression:
+                f_type = FailureClassifier.classify_build_failure(post_build)
+                return ValidationReport(
+                    success=False,
+                    failed_tier=ValidationTier.T1_BUILD,
+                    failure_type=f_type,
+                    error_message=f"[T1 Build Failure] {msg}",
+                    details={"is_regression": True, "baseline_passed": baseline.build_result.success},
+                )
+            elif has_error:
+                f_type = FailureClassifier.classify_build_failure(post_build)
+                return ValidationReport(
+                    success=False,
+                    failed_tier=ValidationTier.T1_BUILD,
+                    failure_type=f_type,
+                    error_message=f"[T1 Build Failure] {msg}",
+                    details={"is_regression": False, "baseline_passed": baseline.build_result.success},
+                )
+        else:
+            if not post_build.success:
+                f_type = FailureClassifier.classify_build_failure(post_build)
+                err = "\n".join([e.message for e in post_build.errors]) or post_build.raw_output
+                return ValidationReport(
+                    success=False,
+                    failed_tier=ValidationTier.T1_BUILD,
+                    failure_type=f_type,
+                    error_message=f"[T1 Build Failure] {err}",
+                )
 
-        # 4. T2 - Behavioral
-        beh_res = self.behavioral_validator.validate_behavior(repo_path, task.task_id)
-        if not beh_res.success:
-            return ValidationReport(
-                success=False,
-                failed_tier=ValidationTier.T2_BEHAVIORAL,
-                failure_type=FailureType.BEHAVIORAL,
-                error_message=f"[T2 Behavioral Failure] " + "; ".join(beh_res.failures),
-                details={"failures": beh_res.failures},
-            )
+        # 4. T2 - Behavioral (if validator configured)
+        if self.behavioral_validator is not None:
+            beh_res = self.behavioral_validator.validate_behavior(repo_path, task.task_id)
+            if not beh_res.success:
+                return ValidationReport(
+                    success=False,
+                    failed_tier=ValidationTier.T2_BEHAVIORAL,
+                    failure_type=FailureType.BEHAVIORAL,
+                    error_message=f"[T2 Behavioral Failure] " + "; ".join(beh_res.failures),
+                    details={"failures": beh_res.failures},
+                )
 
-        # 5. T3 - Regression
-        reg_res = self.regression_validator.validate_regression(repo_path)
-        if not reg_res.success:
-            return ValidationReport(
-                success=False,
-                failed_tier=ValidationTier.T3_REGRESSION,
-                failure_type=FailureType.BEHAVIORAL,
-                error_message=f"[T3 Regression Failure] " + "; ".join(reg_res.broken_tests),
-                details={"broken_tests": reg_res.broken_tests},
-            )
+        # 5. T3 - Regression (if validator configured)
+        if self.regression_validator is not None:
+            post_reg = self.regression_validator.validate_regression(repo_path)
+            if baseline is not None and baseline.regression_result is not None:
+                is_regression, new_broken = BaselineManager.compare_regression(baseline.regression_result, post_reg)
+                if is_regression:
+                    return ValidationReport(
+                        success=False,
+                        failed_tier=ValidationTier.T3_REGRESSION,
+                        failure_type=FailureType.REGRESSION,
+                        error_message=f"[T3 Regression Failure] " + "; ".join(new_broken),
+                        details={
+                            "broken_tests": new_broken,
+                            "baseline_broken": baseline.regression_result.broken_tests,
+                            "post_broken": post_reg.broken_tests,
+                        },
+                    )
+            else:
+                if not post_reg.success:
+                    return ValidationReport(
+                        success=False,
+                        failed_tier=ValidationTier.T3_REGRESSION,
+                        failure_type=FailureType.REGRESSION,
+                        error_message=f"[T3 Regression Failure] " + "; ".join(post_reg.broken_tests),
+                        details={"broken_tests": post_reg.broken_tests},
+                    )
 
         return ValidationReport(success=True)
+

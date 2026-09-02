@@ -27,7 +27,7 @@ def temp_git_repo(tmp_path: Path):
 
 
 def test_valid_patch_commit(temp_git_repo: Path):
-    runtime = DSHRuntime(temp_git_repo, dry_run=False)
+    runtime = DSHRuntime(temp_git_repo, dry_run=False, test_mode=True)
 
     task = TaskDefinition(
         task_id="T001",
@@ -67,7 +67,7 @@ def test_valid_patch_commit(temp_git_repo: Path):
 
 
 def test_scope_violation_unallowed_file(temp_git_repo: Path):
-    runtime = DSHRuntime(temp_git_repo, dry_run=False)
+    runtime = DSHRuntime(temp_git_repo, dry_run=False, test_mode=True)
 
     task = TaskDefinition(
         task_id="T002",
@@ -99,7 +99,7 @@ def test_scope_violation_unallowed_file(temp_git_repo: Path):
 
 
 def test_scope_violation_lines_budget(temp_git_repo: Path):
-    runtime = DSHRuntime(temp_git_repo, dry_run=False)
+    runtime = DSHRuntime(temp_git_repo, dry_run=False, test_mode=True)
 
     task = TaskDefinition(
         task_id="T003",
@@ -115,8 +115,8 @@ def test_scope_violation_lines_budget(temp_git_repo: Path):
                 file="Player.cs",
                 hunks=[
                     PatchHunk(
-                        old_text="",
-                        new_text="// line 1\n// line 2\n// line 3\n// line 4\n"
+                        old_text="    public void Update() {}",
+                        new_text="    public void Update() {\n// line 1\n// line 2\n// line 3\n// line 4\n    }"
                     )
                 ]
             )
@@ -131,7 +131,7 @@ def test_scope_violation_lines_budget(temp_git_repo: Path):
 
 
 def test_patch_invalid_hunk_mismatch(temp_git_repo: Path):
-    runtime = DSHRuntime(temp_git_repo, dry_run=False)
+    runtime = DSHRuntime(temp_git_repo, dry_run=False, test_mode=True)
 
     task = TaskDefinition(
         task_id="T004",
@@ -157,7 +157,7 @@ def test_patch_invalid_hunk_mismatch(temp_git_repo: Path):
 
     assert result.success is False
     assert result.failure_type == FailureType.PATCH_INVALID.value
-    assert "Hunk old_text not found" in result.error_message
+    assert "old_text not found in target file" in result.error_message
 
 
 def test_build_failure_and_rollback(temp_git_repo: Path):
@@ -177,7 +177,7 @@ def test_build_failure_and_rollback(temp_git_repo: Path):
         patches=[
             FilePatch(
                 file="Player.cs",
-                hunks=[PatchHunk(old_text="", new_text="// broken syntax\n")]
+                hunks=[PatchHunk(old_text="    public void Update() {}", new_text="    public void Update() {\n        int x = 1;\n    }")]
             )
         ]
     )
@@ -188,14 +188,14 @@ def test_build_failure_and_rollback(temp_git_repo: Path):
     assert result.failure_type == FailureType.SYNTAX.value
 
     content = (temp_git_repo / "Player.cs").read_text(encoding="utf-8")
-    assert "// broken syntax" not in content
+    assert "CS1002 syntax error" not in content
 
     ws = WorkspaceManager(temp_git_repo)
     assert ws.is_clean() is True
 
 
 def test_dry_run_mode(temp_git_repo: Path):
-    runtime = DSHRuntime(temp_git_repo, dry_run=True)
+    runtime = DSHRuntime(temp_git_repo, dry_run=True, test_mode=True)
 
     task = TaskDefinition(
         task_id="T006",
@@ -207,7 +207,7 @@ def test_dry_run_mode(temp_git_repo: Path):
         patches=[
             FilePatch(
                 file="Player.cs",
-                hunks=[PatchHunk(old_text="", new_text="// dry run comment\n")]
+                hunks=[PatchHunk(old_text="    public void Update() {}", new_text="    public void Update() {\n        // dry run comment\n    }")]
             )
         ]
     )
@@ -226,7 +226,7 @@ def test_dry_run_mode(temp_git_repo: Path):
 
 
 def test_anti_bypass_detection(temp_git_repo: Path):
-    runtime = DSHRuntime(temp_git_repo, dry_run=False)
+    runtime = DSHRuntime(temp_git_repo, dry_run=False, test_mode=True)
 
     task = TaskDefinition(
         task_id="T007",
@@ -238,7 +238,7 @@ def test_anti_bypass_detection(temp_git_repo: Path):
         patches=[
             FilePatch(
                 file="Player.cs",
-                hunks=[PatchHunk(old_text="", new_text="#if FALSE\nvoid Dummy() {}\n#endif\n")]
+                hunks=[PatchHunk(old_text="    public void Update() {}", new_text="    public void Update() {\n#if FALSE\nvoid Dummy() {}\n#endif\n    }")]
             )
         ]
     )

@@ -18,9 +18,16 @@ class ModelRequest(BaseModel):
     json_mode: bool = True
 
 
+from recovery.classifier import FailureType
+
+
 class ModelResponse(BaseModel):
-    raw_content: str
+    raw_content: str = ""
     patch_proposal: Optional[PatchProposal] = None
     tokens_used: int = 0
     model_name: str = ""
     error: Optional[str] = None
+    failure_type: Optional[FailureType] = None
+    status_code: Optional[int] = None
+    retry_after: Optional[float] = None
+

@@ -21,13 +21,18 @@ class EpisodeRetriever:
         current_version: str,
         current_env: str = "linux",
         max_results: int = 3,
+        include_stale: bool = False,
     ) -> List[EpisodeRecord]:
+        """Retrieves matching episodes for symbol. Excludes STALE episodes by default."""
         matches = self.store.get_by_symbol(symbol)
         results = []
 
         for ep in matches:
             # Update staleness
             status = StaleDetector.check_staleness(ep, current_version=current_version, current_env=current_env)
+            if not include_stale and status != EpisodeStatus.VALIDATED:
+                # Stale memory excluded by default
+                continue
             ep_copy = ep.model_copy(update={"status": status})
             results.append(ep_copy)
 

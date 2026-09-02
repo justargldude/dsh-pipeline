@@ -1,8 +1,15 @@
 import json
+from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 import duckdb
 from pydantic import BaseModel, Field
+
+
+class MatchState(str, Enum):
+    MATCHED = "MATCHED"
+    AMBIGUOUS = "AMBIGUOUS"
+    UNMAPPED = "UNMAPPED"
 
 
 class SymbolRecord(BaseModel):
@@ -26,6 +33,8 @@ class CrossVersionMatchRecord(BaseModel):
     caller_similarity: float
     field_similarity: float
     confidence: float
+    margin: float = 0.0
+    match_state: MatchState = MatchState.UNMAPPED
     verified: bool = False
 
 
@@ -46,7 +55,7 @@ class EvidenceDatabase:
                 version VARCHAR,
                 return_type VARCHAR,
                 parameters JSON,
-                PRIMARY KEY (symbol_name, version)
+                PRIMARY KEY (symbol_name, signature, version)
             );
         """)
         self.conn.execute("""
@@ -68,6 +77,8 @@ class EvidenceDatabase:
                 caller_similarity DOUBLE,
                 field_similarity DOUBLE,
                 confidence DOUBLE,
+                margin DOUBLE,
+                match_state VARCHAR,
                 verified BOOLEAN,
                 PRIMARY KEY (old_symbol, new_symbol, old_version, new_version)
             );
@@ -114,8 +125,8 @@ class EvidenceDatabase:
         self.conn.execute(
             """
             INSERT OR REPLACE INTO cross_version_mappings
-            (old_symbol, new_symbol, old_version, new_version, name_similarity, signature_similarity, caller_similarity, field_similarity, confidence, verified)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+            (old_symbol, new_symbol, old_version, new_version, name_similarity, signature_similarity, caller_similarity, field_similarity, confidence, margin, match_state, verified)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
             """,
             [
                 record.old_symbol,
@@ -127,15 +138,23 @@ class EvidenceDatabase:
                 record.caller_similarity,
                 record.field_similarity,
                 record.confidence,
+                record.margin,
+                record.match_state.value if isinstance(record.match_state, MatchState) else str(record.match_state),
                 record.verified,
             ],
         )
 
-    def get_symbol(self, symbol_name: str, version: str) -> Optional[SymbolRecord]:
-        res = self.conn.execute(
-            "SELECT symbol_name, class_name, namespace, signature, rva, version, return_type, parameters FROM symbols WHERE symbol_name = ? AND version = ?",
-            [symbol_name, version],
-        ).fetchone()
+    def get_symbol(self, symbol_name: str, version: str, signature: Optional[str] = None) -> Optional[SymbolRecord]:
+        if signature:
+            res = self.conn.execute(
+                "SELECT symbol_name, class_name, namespace, signature, rva, version, return_type, parameters FROM symbols WHERE symbol_name = ? AND version = ? AND signature = ?",
+                [symbol_name, version, signature],
+            ).fetchone()
+        else:
+            res = self.conn.execute(
+                "SELECT symbol_name, class_name, namespace, signature, rva, version, return_type, parameters FROM symbols WHERE symbol_name = ? AND version = ? ORDER BY rva ASC",
+                [symbol_name, version],
+            ).fetchone()
         if not res:
             return None
         return SymbolRecord(
@@ -148,6 +167,25 @@ class EvidenceDatabase:
             return_type=res[6],
             parameters=json.loads(res[7]) if res[7] else [],
         )
+
+    def get_symbols_by_name(self, symbol_name: str, version: str) -> List[SymbolRecord]:
+        rows = self.conn.execute(
+            "SELECT symbol_name, class_name, namespace, signature, rva, version, return_type, parameters FROM symbols WHERE symbol_name = ? AND version = ? ORDER BY rva ASC",
+            [symbol_name, version],
+        ).fetchall()
+        return [
+            SymbolRecord(
+                symbol_name=r[0],
+                class_name=r[1],
+                namespace=r[2],
+                signature=r[3],
+                rva=r[4],
+                version=r[5],
+                return_type=r[6],
+                parameters=json.loads(r[7]) if r[7] else [],
+            )
+            for r in rows
+        ]
 
     def get_callers(self, symbol_name: str, version: str) -> List[str]:
         rows = self.conn.execute(
@@ -166,7 +204,7 @@ class EvidenceDatabase:
     def get_best_mapping(self, old_symbol: str, old_version: str, new_version: str) -> Optional[CrossVersionMatchRecord]:
         res = self.conn.execute(
             """
-            SELECT old_symbol, new_symbol, old_version, new_version, name_similarity, signature_similarity, caller_similarity, field_similarity, confidence, verified
+            SELECT old_symbol, new_symbol, old_version, new_version, name_similarity, signature_similarity, caller_similarity, field_similarity, confidence, margin, match_state, verified
             FROM cross_version_mappings
             WHERE old_symbol = ? AND old_version = ? AND new_version = ?
             ORDER BY confidence DESC
@@ -176,6 +214,12 @@ class EvidenceDatabase:
         ).fetchone()
         if not res:
             return None
+        match_state_val = res[10]
+        try:
+            m_state = MatchState(match_state_val)
+        except Exception:
+            m_state = MatchState.UNMAPPED
+
         return CrossVersionMatchRecord(
             old_symbol=res[0],
             new_symbol=res[1],
@@ -186,7 +230,9 @@ class EvidenceDatabase:
             caller_similarity=res[6],
             field_similarity=res[7],
             confidence=res[8],
-            verified=res[9],
+            margin=res[9] if res[9] is not None else 0.0,
+            match_state=m_state,
+            verified=res[11],
         )
 
     def close(self):

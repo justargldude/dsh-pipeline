@@ -15,15 +15,15 @@ def test_token_budget_estimation():
 
 def test_context_ranking_and_trimming():
     items = [
-        ContextItem(priority=PriorityLevel.RELEVANT_DIFF, category="DIFF", content="A" * 500),
-        ContextItem(priority=PriorityLevel.TARGET_SYMBOL_EVIDENCE, category="EVIDENCE", content="B" * 200),
+        ContextItem(priority=PriorityLevel.FAILURE_HISTORY, category="DIFF", content="A" * 500),
+        ContextItem(priority=PriorityLevel.TARGET_SOURCE, category="SOURCE", content="B" * 200),
         ContextItem(priority=PriorityLevel.DIRECT_CALLERS_CALLEES, category="CALLERS", content="C" * 200),
     ]
 
-    # With a small budget that only fits ~100 tokens, priority 1 should be selected
+    # Target source (priority 2) is mandatory and selected first
     trimmed = ContextRanker.rank_and_trim(items, token_budget=100)
     assert len(trimmed) >= 1
-    assert trimmed[0].priority == PriorityLevel.TARGET_SYMBOL_EVIDENCE
+    assert trimmed[0].priority == PriorityLevel.TARGET_SOURCE
 
 
 def test_context_builder_output():

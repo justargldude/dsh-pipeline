@@ -1,5 +1,5 @@
 from typing import Any, Dict, List, Optional
-from recon.database import EvidenceDatabase, SymbolRecord, CrossVersionMatchRecord
+from recon.database import EvidenceDatabase, SymbolRecord, CrossVersionMatchRecord, MatchState
 
 
 class EvidenceService:
@@ -15,11 +15,14 @@ class EvidenceService:
         old_sym = self.db.get_symbol(symbol_name, old_version)
         mapping = self.db.get_best_mapping(symbol_name, old_version, new_version)
 
-        new_sym_name = mapping.new_symbol if mapping else symbol_name
+        new_sym_name = mapping.new_symbol if (mapping and mapping.new_symbol) else symbol_name
         new_sym = self.db.get_symbol(new_sym_name, new_version)
 
         old_callers = self.db.get_callers(symbol_name, old_version)
-        new_callers = self.db.get_callers(new_sym_name, new_version)
+        new_callers = self.db.get_callers(new_sym_name, new_version) if new_sym_name else []
+
+        match_state = mapping.match_state.value if mapping else MatchState.UNMAPPED.value
+        is_fact = bool(mapping and mapping.verified and mapping.match_state == MatchState.MATCHED)
 
         return {
             "target_symbol": symbol_name,
@@ -33,5 +36,7 @@ class EvidenceService:
                 "new": new_callers,
             },
             "confidence": mapping.confidence if mapping else 0.0,
-            "is_fact": mapping.verified if mapping else False,
+            "margin": mapping.margin if mapping else 0.0,
+            "match_state": match_state,
+            "is_fact": is_fact,
         }

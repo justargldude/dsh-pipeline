@@ -10,7 +10,7 @@ class ModelRouter:
         task: TaskDefinition,
         failure_type: Optional[FailureType] = None,
         attempt: int = 0,
-        evidence_confidence: float = 1.0,
+        evidence_confidence: Optional[float] = None,
     ) -> ModelType:
         # Rule 1: High-risk task always gets Reasoning model
         if task.risk == RiskLevel.HIGH:
@@ -20,11 +20,7 @@ class ModelRouter:
         if attempt >= 2:
             return ModelType.REASONING
 
-        # Rule 3: Low confidence evidence requires Reasoning
-        if evidence_confidence < 0.85:
-            return ModelType.REASONING
-
-        # Rule 4: Failure-based routing
+        # Rule 3: Failure-based routing during recovery loop
         if failure_type:
             if failure_type == FailureType.SYNTAX:
                 return ModelType.FAST
@@ -35,5 +31,10 @@ class ModelRouter:
             if failure_type == FailureType.PATCH_INVALID:
                 return ModelType.FAST
 
-        # Default for low/medium risk first attempts
+        # Rule 4: Missing (None) or Low (< 0.85) confidence evidence requires Reasoning.
+        # Missing evidence is UNKNOWN and must never default to 1.0 or FAST path.
+        if evidence_confidence is None or evidence_confidence < 0.85:
+            return ModelType.REASONING
+
+        # Default for low/medium risk attempts with verified high-confidence evidence (>= 0.85)
         return ModelType.FAST

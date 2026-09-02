@@ -30,19 +30,22 @@ def test_router_decisions():
     low_risk_task = TaskDefinition(task_id="T1", title="Simple fix", allowed_files=["A.cs"], risk=RiskLevel.LOW)
     high_risk_task = TaskDefinition(task_id="T2", title="Unsafe hook", allowed_files=["A.cs"], risk=RiskLevel.HIGH)
 
-    # 1. Normal low-risk task -> FAST
-    assert ModelRouter.route(low_risk_task) == ModelType.FAST
+    # 1. Normal low-risk task with verified high evidence confidence -> FAST
+    assert ModelRouter.route(low_risk_task, evidence_confidence=0.95) == ModelType.FAST
 
-    # 2. High-risk task -> REASONING
-    assert ModelRouter.route(high_risk_task) == ModelType.REASONING
+    # 2. Normal low-risk task with missing evidence confidence (None) -> REASONING (Safe default)
+    assert ModelRouter.route(low_risk_task) == ModelType.REASONING
 
-    # 3. Syntax error failure -> FAST
+    # 3. High-risk task -> REASONING
+    assert ModelRouter.route(high_risk_task, evidence_confidence=0.99) == ModelType.REASONING
+
+    # 4. Syntax error failure retry -> FAST
     assert ModelRouter.route(low_risk_task, failure_type=FailureType.SYNTAX) == ModelType.FAST
 
-    # 4. Behavioral regression failure -> REASONING
+    # 5. Behavioral regression failure -> REASONING
     assert ModelRouter.route(low_risk_task, failure_type=FailureType.BEHAVIORAL) == ModelType.REASONING
 
-    # 5. Low evidence confidence (< 0.85) -> REASONING
+    # 6. Low evidence confidence (< 0.85) -> REASONING
     assert ModelRouter.route(low_risk_task, evidence_confidence=0.72) == ModelType.REASONING
 
 
@@ -75,7 +78,7 @@ Hope this helps!"""
 
 
 def test_execute_with_model_success(temp_git_repo: Path):
-    runtime = DSHRuntime(temp_git_repo, dry_run=False)
+    runtime = DSHRuntime(temp_git_repo, dry_run=False, test_mode=True)
     context_builder = ContextBuilder()
 
     task = TaskDefinition(
@@ -111,7 +114,7 @@ def test_execute_with_model_success(temp_git_repo: Path):
 
 
 def test_execute_with_model_malformed_output(temp_git_repo: Path):
-    runtime = DSHRuntime(temp_git_repo, dry_run=False)
+    runtime = DSHRuntime(temp_git_repo, dry_run=False, test_mode=True)
     context_builder = ContextBuilder()
 
     task = TaskDefinition(
@@ -125,7 +128,8 @@ def test_execute_with_model_malformed_output(temp_git_repo: Path):
     res = runtime.execute_with_model(task, provider=provider, context_builder=context_builder)
 
     assert res.success is False
-    assert res.failure_type == FailureType.PATCH_INVALID.value
+    assert res.failure_type == FailureType.MODEL_FORMAT_ERROR.value
+
 
 
 def test_resolve_deepseek_api_key_env(monkeypatch):

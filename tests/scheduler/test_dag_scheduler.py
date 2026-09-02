@@ -66,7 +66,7 @@ def test_resource_locks():
 
 
 def test_dag_sequential_execution_success(temp_git_repo: Path):
-    runtime = DSHRuntime(temp_git_repo, dry_run=False)
+    runtime = DSHRuntime(temp_git_repo, dry_run=False, test_mode=True)
 
     dag = TaskDAG()
     t1 = TaskDefinition(task_id="T1", title="Update Player", allowed_files=["Player.cs"])
@@ -92,7 +92,7 @@ def test_dag_sequential_execution_success(temp_git_repo: Path):
 
 
 def test_dag_aborts_on_failure(temp_git_repo: Path):
-    runtime = DSHRuntime(temp_git_repo, dry_run=False)
+    runtime = DSHRuntime(temp_git_repo, dry_run=False, test_mode=True)
 
     dag = TaskDAG()
     t1 = TaskDefinition(task_id="T1", title="Failing Task", allowed_files=["Player.cs"])
@@ -106,7 +106,7 @@ def test_dag_aborts_on_failure(temp_git_repo: Path):
             patches=[FilePatch(file="Player.cs", hunks=[PatchHunk(old_text="invalid_old_text()", new_text="")])]
         ),
         "T2": PatchProposal(
-            patches=[FilePatch(file="UI.cs", hunks=[PatchHunk(old_text="void Draw() {}", new_text="void Draw() {}")])]
+            patches=[FilePatch(file="UI.cs", hunks=[PatchHunk(old_text="void Draw() {}", new_text="void Draw() { /* redraw */ }")])]
         ),
     }
 

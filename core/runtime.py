@@ -4,20 +4,35 @@ from typing import Any, Dict, List, Optional
 from rich.logging import RichHandler
 
 from task.schema import TaskDefinition, PatchProposal, TransactionResult
-from core.workspace import WorkspaceManager, WorkspaceError
-from core.state import PipelineEvent, EventLogEntry
+from core.config import PipelineConfig
+from core.workspace import (
+    WorkspaceManager,
+    WorkspaceError,
+    TransactionWorktree,
+    WorktreeCleanupError,
+    WorktreeStagingError,
+    generate_transaction_id,
+)
+from core.state import PipelineEvent, EventLogEntry, TransactionState
 from safety.policy import SafetyPolicy, SessionBudgetTracker
-from safety.patch_validator import PatchValidationError
+from safety.patch_engine import (
+    PatchValidationError,
+    validate_and_simulate_proposal,
+    normalize_repo_path,
+    atomic_write_file,
+)
 from safety.scope_guard import ScopeGuard, ScopeViolationError
-from build.sandbox import BaseBuildRunner, MockBuildRunner, BuildResult
+from build.sandbox import BaseBuildRunner, MockBuildRunner, SubprocessBuildRunner, BuildResult
 from recovery.classifier import FailureClassifier, FailureType
 from model.schemas import ModelRequest, ModelResponse, ModelType
 from model.providers import BaseModelProvider
 from model.router import ModelRouter
+from context.budget import ContextBudgetExceededError
 from context.builder import ContextBuilder
 from validation.pipeline import ValidationPipeline, ValidationReport, ValidationTier
-from validation.behavioral import BaseBehavioralValidator
-from validation.regression import BaseRegressionValidator
+from validation.behavioral import BaseBehavioralValidator, MockBehavioralValidator, SubprocessBehavioralValidator
+from validation.regression import BaseRegressionValidator, MockRegressionValidator, SubprocessRegressionValidator
+from validation.baseline import BaselineManager, BaselineState
 
 logging.basicConfig(
     level="INFO",
@@ -52,25 +67,72 @@ Do NOT wrap your output in explanations. Output ONLY valid JSON with this struct
     def __init__(
         self,
         workspace_path: Path,
+        config: Optional[PipelineConfig] = None,
         build_runner: Optional[BaseBuildRunner] = None,
         behavioral_validator: Optional[BaseBehavioralValidator] = None,
         regression_validator: Optional[BaseRegressionValidator] = None,
+        baseline_manager: Optional[BaselineManager] = None,
         policy: Optional[SafetyPolicy] = None,
         dry_run: bool = False,
         allowed_untracked_paths: Optional[List[str]] = None,
+        test_mode: bool = False,
     ):
         self.workspace_path = workspace_path.resolve()
         self.ws = WorkspaceManager(self.workspace_path)
-        self.build_runner = build_runner or MockBuildRunner(should_succeed=True)
+        self.config = config or PipelineConfig(workspace_root=self.workspace_path)
+        self.test_mode = test_mode
+
+        # Initialize build runner
+        if build_runner is not None:
+            self.build_runner = build_runner
+        elif self.config.build_command:
+            self.build_runner = SubprocessBuildRunner(
+                build_cmd=self.config.build_command,
+                timeout_seconds=self.config.default_timeout_seconds,
+            )
+        elif self.test_mode:
+            self.build_runner = MockBuildRunner(should_succeed=True)
+        else:
+            self.build_runner = None  # Fail closed in production if unconfigured
+
+        # Initialize behavioral validator
+        if behavioral_validator is not None:
+            self.behavioral_validator = behavioral_validator
+        elif self.config.behavioral_command:
+            self.behavioral_validator = SubprocessBehavioralValidator(
+                cmd=self.config.behavioral_command,
+                timeout_seconds=self.config.default_timeout_seconds,
+            )
+        elif self.test_mode:
+            self.behavioral_validator = MockBehavioralValidator(should_succeed=True)
+        else:
+            self.behavioral_validator = None
+
+        # Initialize regression validator
+        if regression_validator is not None:
+            self.regression_validator = regression_validator
+        elif self.config.test_command:
+            self.regression_validator = SubprocessRegressionValidator(
+                test_cmd=self.config.test_command,
+                timeout_seconds=self.config.default_timeout_seconds,
+            )
+        elif self.test_mode:
+            self.regression_validator = MockRegressionValidator(should_succeed=True)
+        else:
+            self.regression_validator = None
+
         self.policy = policy or SafetyPolicy()
         self.session_tracker = SessionBudgetTracker(self.policy)
         self.scope_guard = ScopeGuard(policy=self.policy, session_tracker=self.session_tracker)
         self.validation_pipeline = ValidationPipeline(
-            behavioral_validator=behavioral_validator,
-            regression_validator=regression_validator,
+            behavioral_validator=self.behavioral_validator,
+            regression_validator=self.regression_validator,
+        )
+        self.baseline_manager = baseline_manager or BaselineManager(
+            enable_cache=self.config.enable_baseline_cache
         )
         self.dry_run = dry_run
-        self.allowed_untracked_paths = allowed_untracked_paths or []
+        self.allowed_untracked_paths = allowed_untracked_paths or self.config.allowed_untracked_paths or []
         self.event_log: List[EventLogEntry] = []
 
     def _log_event(self, event: PipelineEvent, task_id: str, message: str = "", details: Optional[dict] = None):
@@ -82,6 +144,18 @@ Do NOT wrap your output in explanations. Output ONLY valid JSON with this struct
         )
         self.event_log.append(entry)
         logger.info(f"[bold cyan][{event.value}][/bold cyan] {message}")
+
+    def _safe_cleanup_worktree(self, tx_worktree: Optional[TransactionWorktree], task_id: str) -> Optional[str]:
+        if tx_worktree is None:
+            return None
+        try:
+            self.ws.remove_transaction_worktree(tx_worktree)
+            return None
+        except Exception as e:
+            err_msg = f"Worktree cleanup failed for {tx_worktree.tx_id}: {str(e)}"
+            logger.error(f"[CLEANUP_FAILED] {err_msg}")
+            self._log_event(PipelineEvent.FAILURE_CLASSIFIED, task_id, err_msg)
+            return err_msg
 
     def execute_with_recovery(
         self,
@@ -113,22 +187,35 @@ Do NOT wrap your output in explanations. Output ONLY valid JSON with this struct
         self._log_event(PipelineEvent.TASK_STARTED, task.task_id, f"Model-driven task {task.task_id}: '{task.title}'")
 
         file_snippets = {}
-        for rel_file in task.allowed_files:
-            file_path = (self.workspace_path / rel_file.lstrip("/")).resolve()
+        for raw_file in task.allowed_files:
+            rel_file = normalize_repo_path(raw_file)
+            file_path = (self.workspace_path / rel_file).resolve()
             if file_path.exists():
                 file_snippets[rel_file] = file_path.read_text(encoding="utf-8")
 
-        context_str = context_builder.build_context(
-            task=task,
-            file_snippets=file_snippets,
-            evidence=evidence,
-            previous_failure=previous_failure,
-        )
+        try:
+            context_str = context_builder.build_context(
+                task=task,
+                file_snippets=file_snippets,
+                evidence=evidence,
+                previous_failure=previous_failure,
+            )
+        except ContextBudgetExceededError as cbe:
+            self._log_event(PipelineEvent.FAILURE_CLASSIFIED, task.task_id, f"Context budget exceeded: {cbe}")
+            return TransactionResult(
+                task_id=task.task_id,
+                success=False,
+                failure_type="CONTEXT_BUDGET_EXCEEDED",
+                error_message=str(cbe),
+                dry_run=self.dry_run,
+                events=[PipelineEvent.TASK_STARTED.value, PipelineEvent.FAILURE_CLASSIFIED.value],
+            )
         self._log_event(PipelineEvent.CONTEXT_BUILT, task.task_id, "Context assembled and ranked.")
 
+        evidence_conf = evidence.get("confidence") if evidence else None
         model_type = ModelRouter.route(
             task=task,
-            evidence_confidence=evidence.get("confidence", 1.0) if evidence else 1.0,
+            evidence_confidence=evidence_conf,
         )
         self._log_event(PipelineEvent.MODEL_REQUEST, task.task_id, f"Querying model [{model_type.value}]...")
 
@@ -141,12 +228,14 @@ Do NOT wrap your output in explanations. Output ONLY valid JSON with this struct
         self._log_event(PipelineEvent.MODEL_RESPONSE, task.task_id, f"Model responded with {resp.tokens_used} tokens.")
 
         if not resp.patch_proposal:
-            self._log_event(PipelineEvent.FAILURE_CLASSIFIED, task.task_id, f"Model output is not valid JSON PatchProposal: {resp.error or resp.raw_content[:200]}")
+            f_type = resp.failure_type or FailureType.MODEL_FORMAT_ERROR
+            err_detail = resp.error or f"Model failed to generate valid PatchProposal JSON. Raw: {resp.raw_content[:200]}"
+            self._log_event(PipelineEvent.FAILURE_CLASSIFIED, task.task_id, f"Model output failed [{f_type.value}]: {err_detail}")
             return TransactionResult(
                 task_id=task.task_id,
                 success=False,
-                failure_type=FailureType.PATCH_INVALID.value,
-                error_message=f"Model failed to generate valid PatchProposal JSON. Raw: {resp.raw_content[:200]}",
+                failure_type=f_type.value,
+                error_message=err_detail,
                 dry_run=self.dry_run,
                 events=[PipelineEvent.TASK_STARTED.value, PipelineEvent.MODEL_RESPONSE.value, PipelineEvent.FAILURE_CLASSIFIED.value],
             )
@@ -155,136 +244,290 @@ Do NOT wrap your output in explanations. Output ONLY valid JSON with this struct
 
     def execute_transaction(self, task: TaskDefinition, proposal: PatchProposal) -> TransactionResult:
         self._log_event(PipelineEvent.TASK_STARTED, task.task_id, f"Executing transaction for {task.task_id}: '{task.title}'")
-        checkpoint = None
         events: List[str] = [PipelineEvent.TASK_STARTED.value]
+        tx_id = generate_transaction_id(task.task_id)
+        tx_worktree: Optional[TransactionWorktree] = None
+        base_commit: Optional[str] = None
+
+        # Fail closed if production runtime has no build runner configured
+        if self.build_runner is None:
+            err_msg = "BUILD_CONFIGURATION_MISSING: No trusted build command or build runner configured for production runtime."
+            self._log_event(PipelineEvent.FAILURE_CLASSIFIED, task.task_id, err_msg)
+            events.append(PipelineEvent.FAILURE_CLASSIFIED.value)
+            return TransactionResult(
+                task_id=task.task_id,
+                success=False,
+                failure_type=FailureType.CONFIG_MISSING.value,
+                error_message=err_msg,
+                dry_run=self.dry_run,
+                events=events,
+            )
 
         try:
-            # 1. Clean verification & Checkpoint creation
-            checkpoint = self.ws.create_checkpoint(task.task_id, allow_untracked=self.allowed_untracked_paths)
-            self._log_event(PipelineEvent.CHECKPOINT_CREATED, task.task_id, f"Git checkpoint created: {checkpoint}")
+            # 1. Base Commit & Worktree Creation
+            base_commit = self.ws.get_head_commit()
+            tx_worktree = self.ws.create_transaction_worktree(
+                tx_id=tx_id,
+                base_commit=base_commit,
+                worktree_dir=self.config.worktree_dir,
+            )
+            self._log_event(PipelineEvent.CHECKPOINT_CREATED, task.task_id, f"Isolated worktree created for {tx_id} at {tx_worktree.worktree_path}")
             events.append(PipelineEvent.CHECKPOINT_CREATED.value)
 
-            # 2. Pre-apply Validation (T0 Structural + T4 Risk)
+            # 2. Pre-apply Validation (T0 Structural + T4 Risk) executed in worktree
+            self.ws.journal.update_state(tx_id, TransactionState.VALIDATING)
             pre_report = self.validation_pipeline.validate_pre_apply(
                 task=task,
                 proposal=proposal,
-                repo_path=self.workspace_path,
+                repo_path=tx_worktree.worktree_path,
                 scope_guard=self.scope_guard,
+                reservation_id=tx_id,
             )
             if not pre_report.success:
+                self.session_tracker.release(tx_id)
+                self.ws.journal.update_state(tx_id, TransactionState.FAILED)
                 f_type = pre_report.failure_type.value if pre_report.failure_type else FailureType.UNKNOWN.value
                 self._log_event(PipelineEvent.FAILURE_CLASSIFIED, task.task_id, f"Pre-apply validation failed [{pre_report.failed_tier.value}]: {pre_report.error_message}")
                 events.append(PipelineEvent.FAILURE_CLASSIFIED.value)
-                self.ws.rollback(checkpoint)
-                self._log_event(PipelineEvent.ROLLBACK, task.task_id, f"Rolled back to {checkpoint}")
+
+                cleanup_err = self._safe_cleanup_worktree(tx_worktree, task.task_id)
+                self._log_event(PipelineEvent.ROLLBACK, task.task_id, f"Discarded worktree for {tx_id}")
                 events.append(PipelineEvent.ROLLBACK.value)
+
+                if cleanup_err:
+                    f_type = FailureType.ROLLBACK_FAILED.value
+
                 return TransactionResult(
                     task_id=task.task_id,
                     success=False,
-                    checkpoint=checkpoint,
+                    base_commit=base_commit,
+                    worktree_path=str(tx_worktree.worktree_path),
                     failure_type=f_type,
                     error_message=pre_report.error_message,
                     dry_run=self.dry_run,
+                    cleanup_error=cleanup_err,
                     events=events,
+                    integration_status="ROLLED_BACK",
                 )
 
             self._log_event(PipelineEvent.SCOPE_PASSED, task.task_id, "T0 Structural & T4 Risk validation passed.")
             events.append(PipelineEvent.SCOPE_PASSED.value)
 
-            # 3. Apply Patch to Filesystem
-            for file_patch in proposal.patches:
-                target_file = (self.workspace_path / file_patch.file.lstrip("/")).resolve()
-                target_file.parent.mkdir(parents=True, exist_ok=True)
+            # 3. Capture BASELINE inside isolated worktree (BEFORE candidate patch)
+            self._log_event(PipelineEvent.BASELINE_CAPTURED, task.task_id, "Capturing pre-patch baseline build and validation state...")
+            events.append(PipelineEvent.BASELINE_CAPTURED.value)
+            self.ws.journal.update_state(tx_id, TransactionState.BASELINE_CAPTURED)
 
-                content = target_file.read_text(encoding="utf-8") if target_file.exists() else ""
-                for hunk in file_patch.hunks:
-                    if hunk.old_text:
-                        if hunk.old_text not in content:
-                            raise PatchValidationError(f"Target hunk old_text not found in {file_patch.file}")
-                        content = content.replace(hunk.old_text, hunk.new_text, 1)
-                    else:
-                        content += hunk.new_text
+            baseline = self.baseline_manager.get_or_capture_baseline(
+                repo_path=tx_worktree.worktree_path,
+                ws=self.ws,
+                build_runner=self.build_runner,
+                regression_validator=self.validation_pipeline.regression_validator,
+                behavioral_validator=self.validation_pipeline.behavioral_validator,
+            )
 
-                target_file.write_text(content, encoding="utf-8")
+            # 4. Apply Patch to Filesystem in Isolated Worktree using Atomic Writes
+            simulated_files = validate_and_simulate_proposal(
+                proposal,
+                tx_worktree.worktree_path,
+                max_file_size_bytes=self.config.max_file_size_bytes,
+                max_patch_size_bytes=self.config.max_patch_size_bytes,
+                max_files=self.config.max_files_in_patch,
+            )
+            for rel_file, new_content in simulated_files.items():
+                target_file = (tx_worktree.worktree_path / rel_file).resolve()
+                atomic_write_file(target_file, new_content, encoding="utf-8", preserve_newline=True)
 
-            self._log_event(PipelineEvent.PATCH_APPLIED, task.task_id, f"Applied {len(proposal.patches)} file patch(es).")
+            self.ws.journal.update_state(tx_id, TransactionState.PATCH_APPLIED)
+            self._log_event(PipelineEvent.PATCH_APPLIED, task.task_id, f"Applied {len(proposal.patches)} file patch(es) in worktree.")
             events.append(PipelineEvent.PATCH_APPLIED.value)
 
-            # 4. Post-apply Validation (T1 Build + T2 Behavioral + T3 Regression)
-            self._log_event(PipelineEvent.BUILD_STARTED, task.task_id, "Running post-apply validation (T1 Build, T2 Behavioral, T3 Regression)...")
+            # Final State Pre-Build Verification: Compare simulated content vs actual on-disk content
+            for rel_file, expected_content in simulated_files.items():
+                actual_file = (tx_worktree.worktree_path / rel_file).resolve()
+                if not actual_file.exists():
+                    raise PatchValidationError(f"Expected patched file '{rel_file}' missing from disk.")
+                disk_content = actual_file.read_text(encoding="utf-8")
+                # Normalize line endings for invariant check
+                if disk_content.replace("\r\n", "\n") != expected_content.replace("\r\n", "\n"):
+                    raise PatchValidationError(f"Pre-build state divergence detected on disk for '{rel_file}'.")
+
+            # 5. Post-apply Validation (T1 Build + T2 Behavioral + T3 Regression) inside Worktree
+            self._log_event(PipelineEvent.BUILD_STARTED, task.task_id, "Running post-apply validation (T1 Build, T2 Behavioral, T3 Regression) in worktree...")
             events.append(PipelineEvent.BUILD_STARTED.value)
 
             post_report = self.validation_pipeline.validate_post_apply(
                 task=task,
-                repo_path=self.workspace_path,
+                repo_path=tx_worktree.worktree_path,
                 build_runner=self.build_runner,
+                baseline=baseline,
             )
             if not post_report.success:
+                self.session_tracker.release(tx_id)
+                self.ws.journal.update_state(tx_id, TransactionState.FAILED)
                 f_type = post_report.failure_type.value if post_report.failure_type else FailureType.UNKNOWN.value
                 self._log_event(PipelineEvent.BUILD_FAILED, task.task_id, f"Post-apply validation failed [{post_report.failed_tier.value}]: {post_report.error_message}")
                 events.append(PipelineEvent.BUILD_FAILED.value)
 
-                self.ws.rollback(checkpoint)
-                self._log_event(PipelineEvent.ROLLBACK, task.task_id, f"Rolled back to {checkpoint}")
+                cleanup_err = self._safe_cleanup_worktree(tx_worktree, task.task_id)
+                self._log_event(PipelineEvent.ROLLBACK, task.task_id, f"Discarded worktree for {tx_id}")
                 events.append(PipelineEvent.ROLLBACK.value)
+
+                if cleanup_err:
+                    f_type = FailureType.ROLLBACK_FAILED.value
 
                 return TransactionResult(
                     task_id=task.task_id,
                     success=False,
-                    checkpoint=checkpoint,
+                    base_commit=base_commit,
+                    worktree_path=str(tx_worktree.worktree_path),
                     failure_type=f_type,
                     error_message=post_report.error_message,
                     dry_run=self.dry_run,
+                    cleanup_error=cleanup_err,
                     events=events,
+                    integration_status="ROLLED_BACK",
                 )
 
-            self._log_event(PipelineEvent.VALIDATION_PASSED, task.task_id, "All 5 validation tiers (T0-T4) passed.")
+            self._log_event(PipelineEvent.VALIDATION_PASSED, task.task_id, "All validation tiers passed without regression.")
             events.append(PipelineEvent.VALIDATION_PASSED.value)
+            self.ws.journal.update_state(tx_id, TransactionState.VALIDATED)
 
-            # 5. Commit or Dry-run Rollback
+            # 6. Verify Changed Paths in Worktree (No unexpected modified or untracked files)
+            expected_paths = {normalize_repo_path(p.file) for p in proposal.patches}
+            is_clean_paths, unexpected = tx_worktree.verify_changed_paths(
+                expected_paths=expected_paths,
+                allowed_untracked_paths=self.allowed_untracked_paths,
+            )
+            if not is_clean_paths:
+                self.session_tracker.release(tx_id)
+                self.ws.journal.update_state(tx_id, TransactionState.FAILED)
+                err_msg = f"UNEXPECTED_CHANGES: Worktree contains unexpected modifications or generated files: {unexpected}"
+                self._log_event(PipelineEvent.FAILURE_CLASSIFIED, task.task_id, err_msg)
+                events.append(PipelineEvent.FAILURE_CLASSIFIED.value)
+
+                cleanup_err = self._safe_cleanup_worktree(tx_worktree, task.task_id)
+                self._log_event(PipelineEvent.ROLLBACK, task.task_id, f"Discarded worktree for {tx_id}")
+                events.append(PipelineEvent.ROLLBACK.value)
+
+                f_type = FailureType.ROLLBACK_FAILED.value if cleanup_err else FailureType.SCOPE_VIOLATION.value
+
+                return TransactionResult(
+                    task_id=task.task_id,
+                    success=False,
+                    base_commit=base_commit,
+                    worktree_path=str(tx_worktree.worktree_path),
+                    failure_type=f_type,
+                    error_message=err_msg,
+                    dry_run=self.dry_run,
+                    cleanup_error=cleanup_err,
+                    events=events,
+                    integration_status="ROLLED_BACK",
+                )
+
+            # 7. Dry-Run Check
             if self.dry_run:
-                self.ws.rollback(checkpoint)
-                self._log_event(PipelineEvent.ROLLBACK, task.task_id, f"[DRY-RUN] Changes verified and rolled back to {checkpoint}")
+                self.session_tracker.release(tx_id)
+                self.ws.journal.update_state(tx_id, TransactionState.DISCARDED)
+                cleanup_err = self._safe_cleanup_worktree(tx_worktree, task.task_id)
+                self._log_event(PipelineEvent.ROLLBACK, task.task_id, f"[DRY-RUN] Changes verified in worktree and discarded.")
                 events.append(PipelineEvent.ROLLBACK.value)
                 return TransactionResult(
                     task_id=task.task_id,
                     success=True,
-                    checkpoint=checkpoint,
+                    base_commit=base_commit,
                     dry_run=True,
+                    cleanup_error=cleanup_err,
                     events=events,
-                )
-            else:
-                commit_hash = self.ws.commit(task.task_id, task.title)
-                self._log_event(PipelineEvent.COMMIT_CREATED, task.task_id, f"Transaction committed: {commit_hash}")
-                self._log_event(PipelineEvent.TASK_COMPLETED, task.task_id, f"Task {task.task_id} completed successfully.")
-                events.append(PipelineEvent.COMMIT_CREATED.value)
-                events.append(PipelineEvent.TASK_COMPLETED.value)
-                return TransactionResult(
-                    task_id=task.task_id,
-                    success=True,
-                    checkpoint=checkpoint,
-                    commit_hash=commit_hash,
-                    dry_run=False,
-                    events=events,
+                    integration_status="DRY_RUN",
                 )
 
+            # 8. Exact Staging & Staging Verification
+            self.ws.journal.update_state(tx_id, TransactionState.STAGED)
+            tx_worktree.stage_exact(list(expected_paths))
+
+            # 9. Commit inside Isolated Worktree
+            commit_hash = tx_worktree.commit(
+                task.task_id,
+                task.title,
+                expected_paths=list(expected_paths),
+                allowed_untracked_paths=self.allowed_untracked_paths,
+            )
+            self.ws.journal.update_state(tx_id, TransactionState.COMMITTED)
+            self._log_event(PipelineEvent.COMMIT_CREATED, task.task_id, f"Transaction committed in worktree: {commit_hash}")
+            events.append(PipelineEvent.COMMIT_CREATED.value)
+
+            # 10. Integration into Main Workspace
+            integration_status = self.ws.integrate_transaction(tx_worktree, commit_hash)
+            if integration_status == "INTEGRATED":
+                self.ws.journal.update_state(tx_id, TransactionState.INTEGRATED)
+            elif integration_status == "STALE_BASE":
+                self.ws.journal.update_state(tx_id, TransactionState.STALE_BASE)
+            else:
+                self.ws.journal.update_state(tx_id, TransactionState.READY_TO_INTEGRATE)
+
+            self._log_event(PipelineEvent.TASK_COMPLETED, task.task_id, f"Task {task.task_id} completed with integration status: {integration_status}")
+            events.append(PipelineEvent.TASK_COMPLETED.value)
+
+            # 11. Cleanup Isolated Worktree
+            cleanup_err = self._safe_cleanup_worktree(tx_worktree, task.task_id)
+            if cleanup_err:
+                self.session_tracker.release(tx_id)
+                return TransactionResult(
+                    task_id=task.task_id,
+                    success=False,
+                    commit_hash=commit_hash,
+                    base_commit=base_commit,
+                    worktree_path=str(tx_worktree.worktree_path),
+                    cleanup_error=cleanup_err,
+                    failure_type=FailureType.ROLLBACK_FAILED.value,
+                    error_message=f"CLEANUP_FAILED: {cleanup_err}",
+                    dry_run=False,
+                    events=events,
+                    integration_status=integration_status,
+                )
+
+            # Commit budget
+            self.session_tracker.commit(tx_id)
+
+            return TransactionResult(
+                task_id=task.task_id,
+                success=True,
+                commit_hash=commit_hash,
+                base_commit=base_commit,
+                worktree_path=str(tx_worktree.worktree_path),
+                dry_run=False,
+                events=events,
+                integration_status=integration_status,
+            )
+
         except Exception as exc:
+            self.session_tracker.release(tx_id)
+            if tx_worktree is not None:
+                self.ws.journal.update_state(tx_id, TransactionState.FAILED)
             failure_type = FailureClassifier.classify_exception(exc)
             err_msg = str(exc)
             self._log_event(PipelineEvent.FAILURE_CLASSIFIED, task.task_id, f"Error ({failure_type.value}): {err_msg}")
             events.append(PipelineEvent.FAILURE_CLASSIFIED.value)
 
-            if checkpoint:
-                self.ws.rollback(checkpoint)
-                self._log_event(PipelineEvent.ROLLBACK, task.task_id, f"Workspace restored to {checkpoint}")
+            cleanup_err = None
+            if tx_worktree is not None:
+                cleanup_err = self._safe_cleanup_worktree(tx_worktree, task.task_id)
+                self._log_event(PipelineEvent.ROLLBACK, task.task_id, f"Worktree discarded for {tx_id}")
                 events.append(PipelineEvent.ROLLBACK.value)
+
+            if cleanup_err:
+                failure_type = FailureType.ROLLBACK_FAILED
 
             return TransactionResult(
                 task_id=task.task_id,
                 success=False,
-                checkpoint=checkpoint,
+                base_commit=base_commit if base_commit else (self.ws.get_head_commit() if (self.workspace_path / ".git").exists() else None),
+                worktree_path=str(tx_worktree.worktree_path) if tx_worktree else None,
                 failure_type=failure_type.value,
                 error_message=err_msg,
                 dry_run=self.dry_run,
+                cleanup_error=cleanup_err,
                 events=events,
+                integration_status="FAILED",
             )

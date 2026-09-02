@@ -8,6 +8,13 @@ from safety.scope_guard import ScopeGuard
 class StructuralValidator:
     """T0 - Structural Validation (Schema, diff budget, allowed files, AST guard)."""
     @staticmethod
-    def validate(task: TaskDefinition, proposal: PatchProposal, repo_path: Path, scope_guard: ScopeGuard):
+    def validate(
+        task: TaskDefinition,
+        proposal: PatchProposal,
+        repo_path: Path,
+        scope_guard: ScopeGuard,
+        reservation_id: Optional[str] = None,
+    ):
         PatchValidator.validate_proposal(proposal, repo_path)
-        scope_guard.validate(task, proposal, repo_path)
+        scope_guard.validate(task, proposal, repo_path, reservation_id=reservation_id)
+

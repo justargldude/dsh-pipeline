@@ -5,7 +5,7 @@ import pytest
 from task.schema import TaskDefinition, PatchProposal, FilePatch, PatchHunk, RiskLevel
 from recovery.classifier import FailureType
 from validation.behavioral import MockBehavioralValidator
-from validation.regression import MockRegressionValidator
+from validation.regression import BaseRegressionValidator, MockRegressionValidator
 from core.runtime import DSHRuntime
 
 
@@ -25,7 +25,7 @@ def temp_git_repo(tmp_path: Path):
 
 
 def test_validation_all_tiers_pass(temp_git_repo: Path):
-    runtime = DSHRuntime(temp_git_repo, dry_run=False)
+    runtime = DSHRuntime(temp_git_repo, dry_run=False, test_mode=True)
 
     task = TaskDefinition(
         task_id="T_VAL_01",
@@ -50,7 +50,7 @@ def test_validation_all_tiers_pass(temp_git_repo: Path):
 def test_validation_t2_behavioral_failure(temp_git_repo: Path):
     # Failing behavioral validator
     failing_behavioral = MockBehavioralValidator(should_succeed=False, failures=["Hook failed to trigger in smoke test."])
-    runtime = DSHRuntime(temp_git_repo, behavioral_validator=failing_behavioral, dry_run=False)
+    runtime = DSHRuntime(temp_git_repo, behavioral_validator=failing_behavioral, dry_run=False, test_mode=True)
 
     task = TaskDefinition(
         task_id="T_VAL_02",
@@ -78,9 +78,25 @@ def test_validation_t2_behavioral_failure(temp_git_repo: Path):
 
 
 def test_validation_t3_regression_failure(temp_git_repo: Path):
-    # Failing regression validator
-    failing_regression = MockRegressionValidator(should_succeed=False, broken_tests=["PlayerInventoryTest.TestDropItem: Crash"])
-    runtime = DSHRuntime(temp_git_repo, regression_validator=failing_regression, dry_run=False)
+    # Regression validator that passes on baseline but fails post-patch (introducing new regression)
+    from validation.regression import RegressionCheckResult
+    
+    class PostPatchRegressionValidator(BaseRegressionValidator):
+        def __init__(self):
+            self.calls = 0
+
+        def validate_regression(self, repo_path: Path) -> RegressionCheckResult:
+            self.calls += 1
+            if self.calls == 1:
+                return RegressionCheckResult(success=True, output="Baseline clean")
+            return RegressionCheckResult(
+                success=False,
+                broken_tests=["PlayerInventoryTest.TestDropItem: Crash"],
+                output="Regression failure",
+            )
+
+    failing_regression = PostPatchRegressionValidator()
+    runtime = DSHRuntime(temp_git_repo, regression_validator=failing_regression, dry_run=False, test_mode=True)
 
     task = TaskDefinition(
         task_id="T_VAL_03",
@@ -99,7 +115,7 @@ def test_validation_t3_regression_failure(temp_git_repo: Path):
 
     res = runtime.execute_transaction(task, proposal)
     assert res.success is False
-    assert res.failure_type == FailureType.BEHAVIORAL.value
+    assert res.failure_type == FailureType.REGRESSION.value
     assert "T3 Regression Failure" in res.error_message
 
     # Workspace clean
@@ -107,7 +123,7 @@ def test_validation_t3_regression_failure(temp_git_repo: Path):
 
 
 def test_validation_t4_risk_failure(temp_git_repo: Path):
-    runtime = DSHRuntime(temp_git_repo, dry_run=False)
+    runtime = DSHRuntime(temp_git_repo, dry_run=False, test_mode=True)
 
     task = TaskDefinition(
         task_id="T_VAL_04",
@@ -121,7 +137,7 @@ def test_validation_t4_risk_failure(temp_git_repo: Path):
         patches=[
             FilePatch(
                 file="Player.cs",
-                hunks=[PatchHunk(old_text="", new_text="[DllImport(\"kernel32\")] static extern void DangerousCall();\n")]
+                hunks=[PatchHunk(old_text="    public void Update() {}", new_text="    public void Update() {\n        DangerousCall();\n    }\n    [DllImport(\"kernel32\")] static extern void DangerousCall();\n")]
             )
         ]
     )
@@ -131,3 +147,5 @@ def test_validation_t4_risk_failure(temp_git_repo: Path):
     assert res.failure_type == FailureType.SCOPE_VIOLATION.value
     assert "T4 Risk Violation" in res.error_message
     assert "DllImport" in res.error_message
+
+

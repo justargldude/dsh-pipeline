@@ -5,6 +5,7 @@ from typing import Optional
 from task.schema import TaskDefinition, PatchProposal
 from safety.policy import SafetyPolicy, SessionBudgetTracker
 from safety.ast_guard import ASTGuard, ASTViolationError
+from safety.patch_engine import normalize_repo_path, apply_hunks
 
 
 class ScopeViolationError(Exception):
@@ -27,42 +28,78 @@ class ScopeGuard:
         self.session_tracker = session_tracker
         self.ast_guard = ASTGuard()
 
-    def validate(self, task: TaskDefinition, proposal: PatchProposal, repo_path: Path):
+    def validate(
+        self,
+        task: TaskDefinition,
+        proposal: PatchProposal,
+        repo_path: Path,
+        reservation_id: Optional[str] = None,
+    ):
         repo_root = repo_path.resolve()
+
         total_added = 0
         total_deleted = 0
 
-        for file_patch in proposal.patches:
-            rel_file = file_patch.file.replace("\\", "/").lstrip("/")
-            target_path = (repo_root / rel_file).resolve()
+        # Pre-normalize allowed files
+        normalized_allowed = [normalize_repo_path(f) for f in task.allowed_files]
 
-            # 1. Path traversal & root escape check
+        for file_patch in proposal.patches:
+            try:
+                rel_file = normalize_repo_path(file_patch.file)
+            except Exception as e:
+                raise ScopeViolationError(f"Invalid path in patch: {str(e)}")
+
+            if not rel_file:
+                raise ScopeViolationError("Empty file path in patch proposal.")
+
+            unresolved_path = repo_root / rel_file
+
+            # 1. Symlink and Path Traversal inspection on unresolved chain
+            curr = repo_root
+            for part in rel_file.split("/"):
+                curr = curr / part
+                if curr.is_symlink():
+                    try:
+                        resolved_part = curr.resolve()
+                        resolved_part.relative_to(repo_root)
+                    except ValueError:
+                        raise ScopeViolationError(
+                            f"Symlink '{part}' in '{rel_file}' points outside repository root."
+                        )
+
+            # 2. Resolved path root escape check
+            target_path = unresolved_path.resolve()
             try:
                 target_path.relative_to(repo_root)
             except ValueError:
-                raise ScopeViolationError(f"Path traversal detected: '{file_patch.file}' escapes repository root.")
+                raise ScopeViolationError(
+                    f"Path traversal / symlink escape detected: '{file_patch.file}' escapes repository root."
+                )
 
-            # 2. Forbidden files pattern check
+            # 3. Forbidden files pattern check (checks full relative path, components, and target name)
             for pattern in self.policy.forbidden_file_patterns:
-                if fnmatch.fnmatch(rel_file, pattern) or fnmatch.fnmatch(target_path.name, pattern):
+                if (
+                    fnmatch.fnmatch(rel_file, pattern)
+                    or fnmatch.fnmatch(target_path.name, pattern)
+                    or any(fnmatch.fnmatch(p, pattern) for p in rel_file.split("/"))
+                ):
                     raise ScopeViolationError(
                         f"Forbidden file access detected: '{rel_file}' matches restricted pattern '{pattern}'"
                     )
 
-            # 3. Allowed files check
-            normalized_allowed = [f.replace("\\", "/").lstrip("/") for f in task.allowed_files]
+            # 4. Allowed files check
             if rel_file not in normalized_allowed:
                 raise ScopeViolationError(
                     f"File '{rel_file}' is not in allowed_files: {task.allowed_files}"
                 )
 
-            # 4. Symlink security
-            if target_path.is_symlink():
-                real_target = target_path.resolve()
-                try:
-                    real_target.relative_to(repo_root)
-                except ValueError:
-                    raise ScopeViolationError(f"Symlink '{rel_file}' points outside repository root.")
+            # If the path is a symlink, the target file must also be authorized
+            if unresolved_path.is_symlink():
+                resolved_rel = normalize_repo_path(str(target_path.relative_to(repo_root)))
+                if resolved_rel not in normalized_allowed:
+                    raise ScopeViolationError(
+                        f"Symlink '{rel_file}' points to unauthorized file '{resolved_rel}' not in allowed_files: {task.allowed_files}"
+                    )
 
             # 5. Hunks count limit
             if len(file_patch.hunks) > self.policy.max_hunks_per_file:
@@ -71,8 +108,9 @@ class ScopeGuard:
                 )
 
             # 6. Diff calculation & Anti-bypass text scanning
-            orig_content = target_path.read_text(encoding="utf-8") if target_path.exists() else ""
-            simulated_content = orig_content
+            is_new = not target_path.exists()
+            orig_content = target_path.read_text(encoding="utf-8") if not is_new else ""
+            base_content = orig_content if not is_new else None
 
             for hunk in file_patch.hunks:
                 old_lines = hunk.old_text.splitlines() if hunk.old_text else []
@@ -86,15 +124,23 @@ class ScopeGuard:
                     if pattern.search(hunk.new_text):
                         raise ScopeViolationError(f"Anti-bypass violation in '{rel_file}': {msg}")
 
-                if hunk.old_text:
-                    simulated_content = simulated_content.replace(hunk.old_text, hunk.new_text, 1)
-                else:
-                    simulated_content += hunk.new_text
+            # Authoritative simulation for downstream analysis (e.g. AST Guard)
+            simulated_content = apply_hunks(
+                base_content=base_content,
+                hunks=file_patch.hunks,
+                is_new_file=is_new,
+                file_path=rel_file,
+            )
 
-            # 7. AST Guard for C# files
+            # 7. AST Guard for C# files (with target_symbols boundary enforcement)
             if rel_file.endswith(".cs"):
                 try:
-                    self.ast_guard.validate_csharp_transition(orig_content, simulated_content, file_path=rel_file)
+                    self.ast_guard.validate_csharp_transition(
+                        orig_content,
+                        simulated_content,
+                        file_path=rel_file,
+                        target_symbols=task.target_symbols,
+                    )
                 except ASTViolationError as e:
                     raise ScopeViolationError(f"AST Guard rejection: {str(e)}")
 
@@ -111,6 +157,11 @@ class ScopeGuard:
         # 9. Session / DAG cumulative budget check
         if self.session_tracker:
             try:
-                self.session_tracker.check_and_add(total_added, total_deleted)
+                if reservation_id:
+                    self.session_tracker.reserve(reservation_id, total_added, total_deleted)
+                else:
+                    self.session_tracker.check_and_add(total_added, total_deleted)
             except ValueError as e:
                 raise ScopeViolationError(str(e))
+
+

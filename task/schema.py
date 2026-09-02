@@ -1,6 +1,6 @@
 from enum import Enum
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class RiskLevel(str, Enum):
@@ -10,30 +10,52 @@ class RiskLevel(str, Enum):
 
 
 class TaskDefinition(BaseModel):
-    task_id: str
-    title: str
+    task_id: str = Field(..., min_length=1)
+    title: str = Field(..., min_length=1)
     dependencies: List[str] = Field(default_factory=list)
-    allowed_files: List[str]
-    max_lines_added: int = 50
-    max_lines_deleted: int = 20
+    allowed_files: List[str] = Field(default_factory=list)
+    max_lines_added: int = Field(default=50, ge=0, le=50000)
+    max_lines_deleted: int = Field(default=20, ge=0, le=50000)
     target_symbols: List[str] = Field(default_factory=list)
     risk: RiskLevel = RiskLevel.MEDIUM
+
+    @field_validator("task_id", "title")
+    @classmethod
+    def validate_non_empty_string(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("Task ID and title cannot be empty or whitespace-only.")
+        return v.strip()
 
 
 class PatchHunk(BaseModel):
     old_text: str = ""
     new_text: str = ""
 
+    @model_validator(mode="after")
+    def validate_hunk_semantics(self) -> "PatchHunk":
+        if self.old_text == "" and self.new_text == "":
+            raise ValueError("PatchHunk cannot be empty: both old_text and new_text are empty.")
+        if self.old_text != "" and self.old_text == self.new_text:
+            raise ValueError("PatchHunk is a no-op: old_text and new_text are identical.")
+        return self
+
 
 class FilePatch(BaseModel):
-    file: str
+    file: str = Field(..., min_length=1)
     hunks: List[PatchHunk] = Field(default_factory=list)
+
+    @field_validator("file")
+    @classmethod
+    def validate_file_path(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("File path cannot be empty or whitespace-only.")
+        return v.strip()
 
 
 class PatchProposal(BaseModel):
     patches: List[FilePatch]
     reason: str = ""
-    confidence: float = 1.0
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0)
 
 
 class TransactionResult(BaseModel):
@@ -41,6 +63,11 @@ class TransactionResult(BaseModel):
     success: bool
     checkpoint: Optional[str] = None
     commit_hash: Optional[str] = None
+    base_commit: Optional[str] = None
+    worktree_path: Optional[str] = None
+    integration_status: Optional[str] = None
+    cleanup_error: Optional[str] = None
+    baseline_details: Optional[Dict[str, Any]] = None
     failure_type: Optional[str] = None
     error_message: Optional[str] = None
     dry_run: bool = False
