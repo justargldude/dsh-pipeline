@@ -126,18 +126,25 @@ def test_dag_parallel_execution(temp_git_repo: Path):
     scheduler = DAGScheduler(dag, runtime)
     summary = scheduler.run_parallel(patches, max_workers=3)
 
-    assert summary.success is True
-    assert set(summary.completed_tasks) == {"T_PAR_1", "T_PAR_2", "T_PAR_3"}
-    assert len(summary.failed_tasks) == 0
+    integrated_tasks = set()
+    pending_tasks = set()
     assert len(summary.aborted_tasks) == 0
 
-    # Verify that all tasks produced valid commits in their isolated worktrees
+    # A task succeeds only once its worktree commit has reached the main repo.
     for tid in ["T_PAR_1", "T_PAR_2", "T_PAR_3"]:
         res = summary.results[tid]
-        assert res.success is True
         assert res.commit_hash is not None
-        # Integration status should be either INTEGRATED or STALE_BASE/READY_TO_INTEGRATE
         assert res.integration_status in ("INTEGRATED", "STALE_BASE", "READY_TO_INTEGRATE")
+        assert res.success is (res.integration_status == "INTEGRATED")
+        if res.success:
+            integrated_tasks.add(tid)
+        else:
+            pending_tasks.add(tid)
+            assert Path(res.worktree_path).exists()
+
+    assert set(summary.completed_tasks) == integrated_tasks
+    assert set(summary.failed_tasks) == pending_tasks
+    assert summary.success is (len(integrated_tasks) == summary.total_tasks)
 
     assert runtime.ws.is_clean() is True
 

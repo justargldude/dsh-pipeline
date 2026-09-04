@@ -491,9 +491,14 @@ class WorkspaceManager:
         self,
         tx_worktree: TransactionWorktree,
         commit_hash: str,
+        allowed_untracked_paths: Optional[List[str]] = None,
     ) -> str:
         """Evaluates main HEAD and integrates the transaction commit if safe.
-        
+
+        Args:
+            allowed_untracked_paths: Untracked paths in the main workspace that
+                should be tolerated (not treated as dirt) by the cleanliness check.
+
         Thread-safe: Uses an internal lock so concurrent worker threads do not
         race against main Git ref updates.
 
@@ -512,7 +517,7 @@ class WorkspaceManager:
                 return "STALE_BASE"
 
             # Check if main workspace is clean
-            if not self.is_clean():
+            if not self.is_clean(allowed_untracked_paths=allowed_untracked_paths):
                 logger.info(
                     f"Main workspace contains unrelated uncommitted changes. "
                     f"Preserving user changes; transaction {tx_worktree.tx_id} marked READY_TO_INTEGRATE."

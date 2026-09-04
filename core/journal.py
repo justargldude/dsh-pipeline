@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import threading
 import time
 import uuid
 from pathlib import Path
@@ -28,6 +29,8 @@ class TransactionJournal:
     def __init__(self, repo_path: Path):
         self.repo_path = repo_path.resolve()
         self.journal_file = self.repo_path / ".git" / "dsh_journal.json"
+        # In-process lock only; multi-process coordination is out of scope.
+        self._lock = threading.Lock()
 
     def _read_records(self) -> Dict[str, JournalRecord]:
         if not self.journal_file.exists():
@@ -63,32 +66,35 @@ class TransactionJournal:
         worktree_path: str,
         state: TransactionState = TransactionState.CREATED,
     ) -> JournalRecord:
-        records = self._read_records()
-        rec = JournalRecord(
-            tx_id=tx_id,
-            task_id=task_id,
-            base_commit=base_commit,
-            worktree_path=worktree_path,
-            state=state,
-            created_at=time.time(),
-            updated_at=time.time(),
-        )
-        records[tx_id] = rec
-        self._write_records(records)
+        with self._lock:
+            records = self._read_records()
+            rec = JournalRecord(
+                tx_id=tx_id,
+                task_id=task_id,
+                base_commit=base_commit,
+                worktree_path=worktree_path,
+                state=state,
+                created_at=time.time(),
+                updated_at=time.time(),
+            )
+            records[tx_id] = rec
+            self._write_records(records)
         return rec
 
     def update_state(self, tx_id: str, state: TransactionState):
-        records = self._read_records()
-        if tx_id in records:
-            records[tx_id].state = state
-            records[tx_id].updated_at = time.time()
-            self._write_records(records)
+        with self._lock:
+            records = self._read_records()
+            if tx_id in records:
+                records[tx_id].state = state
+                records[tx_id].updated_at = time.time()
+                self._write_records(records)
 
     def record_end(self, tx_id: str):
-        records = self._read_records()
-        if tx_id in records:
-            del records[tx_id]
-            self._write_records(records)
+        with self._lock:
+            records = self._read_records()
+            if tx_id in records:
+                del records[tx_id]
+                self._write_records(records)
 
     def list_active(self) -> List[JournalRecord]:
         records = self._read_records()

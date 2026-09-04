@@ -71,9 +71,10 @@ class BaselineManager:
         build_runner: BaseBuildRunner,
         regression_validator: Optional[BaseRegressionValidator] = None,
         behavioral_validator: Optional[BaseBehavioralValidator] = None,
+        base_commit: Optional[str] = None,
     ) -> BaselineState:
         """Captures or retrieves cached baseline BEFORE candidate patch is applied."""
-        repo_head = ws.get_head_commit()
+        repo_head = base_commit if base_commit is not None else ws.get_head_commit()
         env_fp = self.get_env_fingerprint()
         config_fp = self.compute_config_fingerprint(build_runner, regression_validator, behavioral_validator)
         cache_key = self.compute_cache_key(repo_head, config_fp, env_fp)

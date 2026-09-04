@@ -324,6 +324,7 @@ Do NOT wrap your output in explanations. Output ONLY valid JSON with this struct
                 build_runner=self.build_runner,
                 regression_validator=self.validation_pipeline.regression_validator,
                 behavioral_validator=self.validation_pipeline.behavioral_validator,
+                base_commit=tx_worktree.base_commit,
             )
 
             # 4. Apply Patch to Filesystem in Isolated Worktree using Atomic Writes
@@ -458,7 +459,9 @@ Do NOT wrap your output in explanations. Output ONLY valid JSON with this struct
             events.append(PipelineEvent.COMMIT_CREATED.value)
 
             # 10. Integration into Main Workspace
-            integration_status = self.ws.integrate_transaction(tx_worktree, commit_hash)
+            integration_status = self.ws.integrate_transaction(
+                tx_worktree, commit_hash, allowed_untracked_paths=self.allowed_untracked_paths
+            )
             if integration_status == "INTEGRATED":
                 self.ws.journal.update_state(tx_id, TransactionState.INTEGRATED)
             elif integration_status == "STALE_BASE":
@@ -468,6 +471,23 @@ Do NOT wrap your output in explanations. Output ONLY valid JSON with this struct
 
             self._log_event(PipelineEvent.TASK_COMPLETED, task.task_id, f"Task {task.task_id} completed with integration status: {integration_status}")
             events.append(PipelineEvent.TASK_COMPLETED.value)
+
+            if integration_status != "INTEGRATED":
+                self.session_tracker.release(tx_id)
+                return TransactionResult(
+                    task_id=task.task_id,
+                    success=False,
+                    commit_hash=commit_hash,
+                    base_commit=base_commit,
+                    worktree_path=str(tx_worktree.worktree_path),
+                    error_message=(
+                        f"PENDING_INTEGRATION: {integration_status} — worktree retained "
+                        "for manual/next-phase integration"
+                    ),
+                    dry_run=False,
+                    events=events,
+                    integration_status=integration_status,
+                )
 
             # 11. Cleanup Isolated Worktree
             cleanup_err = self._safe_cleanup_worktree(tx_worktree, task.task_id)
