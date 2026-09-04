@@ -370,6 +370,144 @@ def dag(
         raise typer.Exit(code=1)
 
 
+@app.command(name="prompt")
+def prompt(
+    prompt_text: str = typer.Argument(..., help="Natural language prompt describing the change"),
+    files: Optional[str] = typer.Option(None, "--files", "-f", help="Comma-separated target files (e.g. Player.cs,Game.cs)"),
+    symbol: Optional[str] = typer.Option(None, "--symbol", "-s", help="Optional target symbol to focus on (e.g. Player.Update)"),
+    repo_path: Path = typer.Option(Path("."), "--repo", "-r", help="Path to target Git repository"),
+    build_cmd: Optional[str] = typer.Option(None, "--build-cmd", "-b", help="Trusted build command to execute"),
+    test_cmd: Optional[str] = typer.Option(None, "--test-cmd", help="Trusted regression test command to execute"),
+    max_added: int = typer.Option(300, "--max-added", help="Maximum lines allowed to add"),
+    max_deleted: int = typer.Option(150, "--max-deleted", help="Maximum lines allowed to delete"),
+    dry_run: bool = typer.Option(True, "--dry-run/--commit", help="Validate in sandbox without committing (default)"),
+    env_file: Optional[Path] = typer.Option(None, "--env-file", help="Optional .env file providing DEEPSEEK_API_KEY"),
+):
+    """Execute a model-driven patch transaction directly from a free-form prompt string."""
+    import re
+    import time
+
+    resolved_repo = repo_path.resolve()
+    target_files: List[str] = []
+
+    if files:
+        target_files = [f.strip() for f in files.split(",") if f.strip()]
+    else:
+        # Lightweight file auto-detection (Claude's heuristic)
+        tokens = set(re.findall(r"[\w-]+\.\w+|[A-Z][a-zA-Z0-9]+", prompt_text))
+        try:
+            res = subprocess.run(
+                ["git", "ls-files"],
+                cwd=resolved_repo,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            all_repo_files = [f.strip() for f in res.stdout.splitlines() if f.strip()]
+            for rf in all_repo_files:
+                rf_name = Path(rf).name
+                rf_stem = Path(rf).stem
+                if any(t == rf_name or t == rf_stem or t in rf.split("/") for t in tokens):
+                    target_files.append(rf)
+        except Exception:
+            pass
+
+    if not target_files:
+        console.print(
+            "[bold red]Error:[/bold red] Could not automatically infer target file(s) from prompt.\n"
+            "Please explicitly specify `--files <filename>` (e.g. `--files Player.cs`)."
+        )
+        raise typer.Exit(code=1)
+
+    console.print(f"[cyan]Target file(s) identified:[/cyan] {', '.join(target_files)}")
+    if symbol:
+        console.print(f"[cyan]Target symbol specified:[/cyan] {symbol}")
+
+    task_id = f"TASK_{int(time.time())}"
+    task = TaskDefinition(
+        task_id=task_id,
+        title=prompt_text[:80],
+        allowed_files=target_files,
+        target_symbols=[symbol] if symbol else [],
+        max_lines_added=max_added,
+        max_lines_deleted=max_deleted,
+    )
+
+    runtime, provider, context_builder = _prepare_model_runtime(resolved_repo, dry_run, env_file)
+    if build_cmd:
+        runtime.config.build_command = shlex.split(build_cmd)
+    if test_cmd:
+        runtime.config.test_command = shlex.split(test_cmd)
+
+    result = runtime.execute_with_recovery(task, provider, context_builder)
+    _print_transaction_result(result)
+    if not result.success:
+        raise typer.Exit(code=1)
+
+
+@app.command(name="orchestrate")
+def orchestrate(
+    goal: str = typer.Argument(..., help="High-level autonomous goal for multi-agent review and patch"),
+    target_repo: Path = typer.Option(Path("."), "--target-repo", "-t", help="Target repository path"),
+    qa: Optional[str] = typer.Option(
+        None,
+        "--qa",
+        help="Subagent/model for QA (Scout, Architect, Reviewer). Options: agy, claude, codex, deepseek, or specific model.",
+    ),
+    dev: Optional[str] = typer.Option(
+        None,
+        "--dev",
+        help="Subagent/model for Dev (Coder, Patch Generator). Options: deepseek, codex, claude, agy, or specific model.",
+    ),
+    max_tasks: int = typer.Option(3, "--max-tasks", help="Maximum TDD tasks to generate and execute"),
+    dry_run: bool = typer.Option(True, "--dry-run/--commit", help="Validate in sandbox without committing (default)"),
+    test_mode: bool = typer.Option(False, "--test-mode", help="Run with mock subagents for verification"),
+):
+    """Run full autonomous TDD loop with user-selected QA subagent and Dev subagent."""
+    from rich.markdown import Markdown
+    from orchestrator.coordinator import AutonomousCoordinator
+
+    resolved_repo = target_repo.resolve()
+
+    # Dynamic resolution: Never hardcode QA or Dev models!
+    qa_model = qa or os.environ.get("DSH_QA_MODEL")
+    dev_model = dev or os.environ.get("DSH_DEV_MODEL")
+
+    if test_mode:
+        qa_model = qa_model or "mock-qa"
+        dev_model = dev_model or "mock-dev"
+
+    if not qa_model or not dev_model:
+        console.print("[bold red]Lỗi cấu hình Subagent:[/bold red] Không được hardcode mặc định model QA và Dev.")
+        console.print(
+            "Bạn cần chỉ định rõ model QA (Auditor/Reviewer) và Dev (Coder) qua tham số CLI hoặc biến môi trường:\n"
+            "  --qa <model>  (ví dụ: agy, claude, codex, deepseek)\n"
+            "  --dev <model> (ví dụ: deepseek, codex, claude, agy)\n"
+            "\n[dim]Gợi ý: Dùng `ask --status` để xem danh sách subagent đang active trên máy.[/dim]"
+        )
+        raise typer.Exit(code=1)
+
+    console.print(f"[bold green]Starting Autonomous Orchestration on:[/bold green] {resolved_repo}")
+    console.print(f"[bold cyan]Goal:[/bold cyan] {goal}")
+    console.print(f"[bold magenta]QA (Lead/Reviewer):[/bold magenta] {qa_model} | [bold blue]Dev (Coder):[/bold blue] {dev_model}")
+    console.print(f"[dim]Dry-run: {dry_run} | Max tasks: {max_tasks}[/dim]\n")
+
+    coordinator = AutonomousCoordinator(
+        target_repo=resolved_repo,
+        qa_name=qa_model,
+        dev_name=dev_model,
+        dry_run=dry_run,
+        test_mode=test_mode,
+    )
+
+    result = coordinator.run(user_goal=goal, max_tasks=max_tasks)
+    console.print(Markdown(result.final_report))
+
+    if not result.success:
+        raise typer.Exit(code=1)
+
+
 if __name__ == "__main__":
     app()
+
 
