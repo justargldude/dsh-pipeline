@@ -33,6 +33,8 @@ from validation.pipeline import ValidationPipeline, ValidationReport, Validation
 from validation.behavioral import BaseBehavioralValidator, MockBehavioralValidator, SubprocessBehavioralValidator
 from validation.regression import BaseRegressionValidator, MockRegressionValidator, SubprocessRegressionValidator
 from validation.baseline import BaselineManager, BaselineState
+from memory.episodic import EpisodicMemoryStore, EpisodeRecord, EpisodeValidation
+from memory.retrieval import EpisodeRetriever
 
 logging.basicConfig(
     level="INFO",
@@ -76,11 +78,17 @@ Do NOT wrap your output in explanations. Output ONLY valid JSON with this struct
         dry_run: bool = False,
         allowed_untracked_paths: Optional[List[str]] = None,
         test_mode: bool = False,
+        episodic_store: Optional[EpisodicMemoryStore] = None,
+        episode_retriever: Optional[EpisodeRetriever] = None,
     ):
         self.workspace_path = workspace_path.resolve()
         self.ws = WorkspaceManager(self.workspace_path)
         self.config = config or PipelineConfig(workspace_root=self.workspace_path)
         self.test_mode = test_mode
+        # Bug 7a: optional episodic memory wiring. Defaults keep legacy
+        # behavior 100% unchanged (no new code path runs when unset).
+        self.episodic_store = episodic_store
+        self.episode_retriever = episode_retriever
 
         # Initialize build runner
         if build_runner is not None:
@@ -157,6 +165,64 @@ Do NOT wrap your output in explanations. Output ONLY valid JSON with this struct
             self._log_event(PipelineEvent.FAILURE_CLASSIFIED, task_id, err_msg)
             return err_msg
 
+    def _retrieve_advisory_episodes(self, task: TaskDefinition) -> Optional[List[EpisodeRecord]]:
+        """Bug 7a: retrieves advisory episodes for up to the first 2 target symbols.
+
+        Returns None when no retriever is configured (legacy behavior) or no
+        target symbols exist (R1a: never query with an empty symbol).
+        Advisory memory is auxiliary: any retrieval error is logged and
+        swallowed — it must never break the transaction.
+        """
+        if self.episode_retriever is None or not task.target_symbols:
+            return None
+        try:
+            current_version = self.ws.get_head_commit()
+            collected: List[EpisodeRecord] = []
+            seen_ids = set()
+            for symbol in task.target_symbols[:2]:
+                episodes = self.episode_retriever.retrieve_advisory_episodes(
+                    symbol=symbol,
+                    current_version=current_version,
+                    current_env="linux",
+                    max_results=2,
+                )
+                for ep in episodes:
+                    # Dedup by episode object identity (tests share records).
+                    if id(ep) not in seen_ids:
+                        seen_ids.add(id(ep))
+                        collected.append(ep)
+            return collected
+        except Exception as e:
+            logger.warning(f"[ADVISORY_MEMORY] Episode retrieval failed (continuing without): {e}")
+            return None
+
+    def _store_success_episode(
+        self,
+        task: TaskDefinition,
+        proposal: PatchProposal,
+        tx_worktree: TransactionWorktree,
+    ) -> None:
+        """Bug 7a: persists a validated episode after an INTEGRATED transaction.
+
+        Memory is auxiliary: any error here is logged and swallowed so an
+        episodic store failure never turns a success into a failure.
+        """
+        if self.episodic_store is None:
+            return
+        try:
+            symbol = task.target_symbols[0] if task.target_symbols else task.task_id
+            episode = EpisodeRecord(
+                task_id=task.task_id,
+                symbol=symbol,
+                solution_patch=proposal,
+                version=tx_worktree.base_commit,
+                environment="linux",
+                validation=EpisodeValidation(build=True, behavior=True, regression=True),
+            )
+            self.episodic_store.store_episode(episode)
+        except Exception as e:
+            logger.warning(f"[ADVISORY_MEMORY] Episode store failed (continuing without): {e}")
+
     def execute_with_recovery(
         self,
         task: TaskDefinition,
@@ -199,6 +265,7 @@ Do NOT wrap your output in explanations. Output ONLY valid JSON with this struct
                 file_snippets=file_snippets,
                 evidence=evidence,
                 previous_failure=previous_failure,
+                advisory_episodes=self._retrieve_advisory_episodes(task),
             )
         except ContextBudgetExceededError as cbe:
             self._log_event(PipelineEvent.FAILURE_CLASSIFIED, task.task_id, f"Context budget exceeded: {cbe}")
@@ -488,6 +555,12 @@ Do NOT wrap your output in explanations. Output ONLY valid JSON with this struct
                     events=events,
                     integration_status=integration_status,
                 )
+
+            # Bug 7a: persist validated episode to episodic memory on a fully
+            # integrated success, BEFORE worktree cleanup (which needs the
+            # base_commit/symbols still meaningful). Errors are swallowed
+            # inside the helper — memory must never break the transaction.
+            self._store_success_episode(task, proposal, tx_worktree)
 
             # 11. Cleanup Isolated Worktree
             cleanup_err = self._safe_cleanup_worktree(tx_worktree, task.task_id)

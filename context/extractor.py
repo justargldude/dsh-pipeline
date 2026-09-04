@@ -1,8 +1,8 @@
 import re
 from typing import Dict, List, Optional, Tuple
-import tree_sitter_c_sharp as tscsharp
 from tree_sitter import Language, Parser
 from context.budget import TokenBudgetManager
+from safety.tree_sitter_shared import get_csharp_language
 
 
 class ExtractedSourceResult:
@@ -23,7 +23,8 @@ class SymbolExtractor:
     """Deterministic extractor for targeted C# source symbols using Tree-sitter with regex fallback."""
 
     def __init__(self):
-        self.language = Language(tscsharp.language())
+        # Shared cached Language instance (Opt 8.3); Parser stays per-instance (lightweight).
+        self.language = get_csharp_language()
         self.parser = Parser(self.language)
 
     @staticmethod

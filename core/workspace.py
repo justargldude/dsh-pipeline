@@ -165,6 +165,9 @@ class TransactionWorktree:
         self.main_repo_path = main_repo_path.resolve()
         self.created_at = created_at or time.time()
         self.timeout = timeout
+        # Opt 8.4: per-object git status cache. Every mutating git call in
+        # this class invalidates it FIRST (see _invalidate_status_cache).
+        self._status_cache: Optional[bytes] = None
         self.metadata = WorktreeMetadata(
             tx_id=tx_id,
             base_commit=base_commit,
@@ -172,6 +175,14 @@ class TransactionWorktree:
             created_at=self.created_at,
             state=TransactionState.WORKTREE_READY,
         )
+
+    def _invalidate_status_cache(self) -> None:
+        """Invalidates the cached `git status` bytes (Opt 8.4).
+
+        Must be called BEFORE every mutating git operation (add/commit/
+        checkout/apply/...) so any cached status can never go stale.
+        """
+        self._status_cache = None
 
     def _run_git(self, *args) -> str:
         code, stdout_b, stderr_b = _run_git_subprocess(self.worktree_path, *args, timeout=self.timeout)
@@ -194,8 +205,14 @@ class TransactionWorktree:
     def get_head_commit(self) -> str:
         return self._run_git("rev-parse", "HEAD")
 
+    def _get_status_bytes(self) -> bytes:
+        """Returns cached `git status --porcelain=v1 -z` bytes, spawning git at most once between mutations (Opt 8.4)."""
+        if self._status_cache is None:
+            self._status_cache = self._run_git_bytes("status", "--porcelain=v1", "-z")
+        return self._status_cache
+
     def get_status(self) -> WorkspaceState:
-        raw_bytes = self._run_git_bytes("status", "--porcelain=v1", "-z")
+        raw_bytes = self._get_status_bytes()
         statuses = parse_porcelain_v1_z(raw_bytes)
         modified_paths = [s.path for s in statuses]
         head = self.get_head_commit()
@@ -207,7 +224,7 @@ class TransactionWorktree:
         )
 
     def is_clean(self, allowed_untracked_paths: Optional[List[str]] = None) -> bool:
-        raw_bytes = self._run_git_bytes("status", "--porcelain=v1", "-z")
+        raw_bytes = self._get_status_bytes()
         statuses = parse_porcelain_v1_z(raw_bytes)
         if not statuses:
             return True
@@ -237,7 +254,7 @@ class TransactionWorktree:
         allowed_untracked_paths: Optional[List[str]] = None,
     ) -> Tuple[bool, List[str]]:
         """Verifies that actual changes in worktree strictly match expected paths."""
-        raw_bytes = self._run_git_bytes("status", "--porcelain=v1", "-z")
+        raw_bytes = self._get_status_bytes()
         statuses = parse_porcelain_v1_z(raw_bytes)
         normalized_expected = {normalize_repo_path(p) for p in expected_paths}
         allowed = [normalize_repo_path(p) for p in (allowed_untracked_paths or [])]
@@ -264,6 +281,8 @@ class TransactionWorktree:
 
         normalized_expected = {normalize_repo_path(p) for p in expected_paths}
 
+        # Mutation: git add — invalidate status cache FIRST (Opt 8.4).
+        self._invalidate_status_cache()
         # Stage specific files
         try:
             self._run_git("add", "--", *list(normalized_expected))
@@ -295,6 +314,11 @@ class TransactionWorktree:
         and verifies clean post-commit state.
         """
         commit_msg = f"[{task_id}] {message}"
+        # Mutation: git commit — invalidate status cache FIRST, before the
+        # commit command itself and before the internal is_clean() call below,
+        # so post-commit verification never reads a pre-commit cached status
+        # (Opt 8.4 / R6b).
+        self._invalidate_status_cache()
         self._run_git("commit", "-m", commit_msg)
 
         head = self.get_head_commit()

@@ -58,6 +58,12 @@ class RecoveryManager:
 
             logger.info(f"[RECOVERY_STARTED] Attempt {attempt}/{self.MAX_ATTEMPTS - 1} using [{model_type.value}]")
 
+            # Bug 7a: pull advisory episodes from the runtime's episode
+            # retriever (accessed via runtime attributes, not parameters) so
+            # validated memory from prior runs informs the retry prompt.
+            # Helper returns None when unconfigured or symbol set is empty.
+            advisory_episodes = runtime._retrieve_advisory_episodes(task)
+
             # 2. Build context including failure history
             prev_history_str = history.format_history_for_prompt() if attempt > 0 else None
             try:
@@ -66,6 +72,7 @@ class RecoveryManager:
                     file_snippets=file_snippets,
                     evidence=evidence,
                     previous_failure=prev_history_str,
+                    advisory_episodes=advisory_episodes,
                     complexity=complexity,
                 )
             except ContextBudgetExceededError as cbe:

@@ -159,16 +159,22 @@ class MockModelProvider(BaseModelProvider):
         failure_type: Optional[FailureType] = None,
         error: Optional[str] = None,
         status_code: Optional[int] = None,
+        canned_response: Optional[ModelResponse] = None,
     ):
         self.predefined_proposal = predefined_proposal
         self.raw_response = raw_response
         self.failure_type = failure_type
         self.error = error
         self.status_code = status_code
+        # Bug 7a/7b: fully-formed response replayed verbatim on generate().
+        # Takes precedence over predefined_proposal/raw_response when set.
+        self.canned_response = canned_response
         self.call_count = 0
 
     def generate(self, req: ModelRequest) -> ModelResponse:
         self.call_count += 1
+        if self.canned_response is not None:
+            return self.canned_response
         if self.failure_type is not None:
             return ModelResponse(
                 raw_content=self.raw_response or "",

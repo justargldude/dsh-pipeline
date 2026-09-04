@@ -118,6 +118,41 @@ def normalize_repo_path(file_path: str) -> str:
     return "/".join(parts)
 
 
+def _locate_unique_match(content: str, old_text: str, file_path: str, hunk_idx: int) -> int:
+    """Locates the unique non-overlapping occurrence of old_text in content.
+
+    Single-pass replacement of the former count()+replace() double scan:
+    - `find` for the first occurrence; a second `find` starting at
+      pos + len(old_text) detects any further NON-overlapping occurrence
+      (using pos+1 would incorrectly count self-overlapping patterns like
+      "aa" inside "aaa").
+    - Raises PatchValidationError with the SAME message format as before:
+      "Hunk {idx} old_text not found..." (with 100-char snippet) when absent,
+      "Ambiguous hunk match: old_text appears {N} times..." when multiple.
+      The total count is computed via str.count() only on the error path,
+      to keep the exact legacy message.
+
+    An empty old_text is always rejected as ambiguous (matches legacy
+    str.count("") == len+1 behavior).
+    """
+    pos = content.find(old_text)
+    if pos == -1:
+        snippet = old_text[:100] + ("..." if len(old_text) > 100 else "")
+        raise PatchValidationError(
+            f"Hunk {hunk_idx} old_text not found in target file: {file_path}\n"
+            f"Snippet searched: {snippet}"
+        )
+
+    # Detect a second NON-overlapping occurrence only.
+    if not old_text or content.find(old_text, pos + len(old_text)) != -1:
+        count = content.count(old_text)
+        raise PatchValidationError(
+            f"Ambiguous hunk match: old_text appears {count} times in {file_path} (hunk {hunk_idx})"
+        )
+
+    return pos
+
+
 def apply_hunks(
     base_content: Optional[str],
     hunks: Sequence[PatchHunk],
@@ -173,19 +208,10 @@ def apply_hunks(
                     f"Hunk {idx} is a no-op (old_text == new_text) for '{file_path}'"
                 )
 
-            count = current_content.count(hunk.old_text)
-            if count == 0:
-                snippet = hunk.old_text[:100] + ("..." if len(hunk.old_text) > 100 else "")
-                raise PatchValidationError(
-                    f"Hunk {idx} old_text not found in target file: {file_path}\n"
-                    f"Snippet searched: {snippet}"
-                )
-            if count > 1:
-                raise PatchValidationError(
-                    f"Ambiguous hunk match: old_text appears {count} times in {file_path} (hunk {idx})"
-                )
-
-            current_content = current_content.replace(hunk.old_text, hunk.new_text, 1)
+            pos = _locate_unique_match(current_content, hunk.old_text, file_path, idx)
+            current_content = (
+                current_content[:pos] + hunk.new_text + current_content[pos + len(hunk.old_text):]
+            )
 
         return current_content
 
@@ -203,19 +229,10 @@ def apply_hunks(
                     f"Hunk {idx} is a no-op (old_text == new_text) for '{file_path}'"
                 )
 
-            count = current_content.count(hunk.old_text)
-            if count == 0:
-                snippet = hunk.old_text[:100] + ("..." if len(hunk.old_text) > 100 else "")
-                raise PatchValidationError(
-                    f"Hunk {idx} old_text not found in target file: {file_path}\n"
-                    f"Snippet searched: {snippet}"
-                )
-            if count > 1:
-                raise PatchValidationError(
-                    f"Ambiguous hunk match: old_text appears {count} times in {file_path} (hunk {idx})"
-                )
-
-            current_content = current_content.replace(hunk.old_text, hunk.new_text, 1)
+            pos = _locate_unique_match(current_content, hunk.old_text, file_path, idx)
+            current_content = (
+                current_content[:pos] + hunk.new_text + current_content[pos + len(hunk.old_text):]
+            )
 
         if current_content == base_content:
             raise PatchValidationError(

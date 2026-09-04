@@ -31,6 +31,10 @@ class TransactionJournal:
         self.journal_file = self.repo_path / ".git" / "dsh_journal.json"
         # In-process lock only; multi-process coordination is out of scope.
         self._lock = threading.Lock()
+        # Opt 8.1: lazy-write pending states for update_state (in-memory only
+        # until record_start/record_end/flush persists them). Guarded by the
+        # same self._lock — no extra lock, no extra deadlock surface.
+        self._pending_states: Dict[str, TransactionState] = {}
 
     def _read_records(self) -> Dict[str, JournalRecord]:
         if not self.journal_file.exists():
@@ -78,31 +82,86 @@ class TransactionJournal:
                 updated_at=time.time(),
             )
             records[tx_id] = rec
+            # Drop any stale pending state for a recycled tx_id; the freshly
+            # created record carries the authoritative state.
+            self._pending_states.pop(tx_id, None)
             self._write_records(records)
         return rec
 
     def update_state(self, tx_id: str, state: TransactionState):
+        """Updates the record state in-memory only (lazy write, Opt 8.1).
+
+        The change lives in self._pending_states and the in-memory record set
+        until record_start/record_end/flush persists it. Crash-safety invariant
+        is preserved: record_start always leaves the tx record on disk, so
+        orphan detection never depends on intermediate states.
+        """
         with self._lock:
             records = self._read_records()
             if tx_id in records:
                 records[tx_id].state = state
                 records[tx_id].updated_at = time.time()
+                self._pending_states[tx_id] = state
+
+    def flush(self) -> None:
+        """Persists any pending state updates to disk and clears the pending set."""
+        with self._lock:
+            if not self._pending_states:
+                return
+            records = self._read_records()
+            changed = False
+            for tx_id, state in self._pending_states.items():
+                if tx_id in records:
+                    records[tx_id].state = state
+                    records[tx_id].updated_at = time.time()
+                    changed = True
+            if changed:
                 self._write_records(records)
+            self._pending_states.clear()
 
     def record_end(self, tx_id: str):
         with self._lock:
+            # Apply pending states for OTHER tx_ids before serializing, so a
+            # full rewrite does not silently revert their lazy updates.
+            if self._pending_states:
+                records = self._read_records()
+                for pending_id, state in self._pending_states.items():
+                    if pending_id != tx_id and pending_id in records:
+                        records[pending_id].state = state
+                        records[pending_id].updated_at = time.time()
+                if tx_id in records:
+                    del records[tx_id]
+                self._pending_states.pop(tx_id, None)
+                self._write_records(records)
+                return
             records = self._read_records()
             if tx_id in records:
                 del records[tx_id]
                 self._write_records(records)
 
+    def _apply_pending_overlay(self, records: Dict[str, JournalRecord]) -> Dict[str, JournalRecord]:
+        """Overlays in-memory pending states onto disk records for public API views.
+
+        `_read_records` stays disk-only (lazy-write contract, Opt 8.1 R3b),
+        while `list_active`/`get_orphaned` reflect the freshest in-memory
+        state — preserving the pre-8.1 public API behavior (Bug 2.3 tests).
+        """
+        if not self._pending_states:
+            return records
+        with self._lock:
+            for tx_id, state in self._pending_states.items():
+                if tx_id in records:
+                    records[tx_id].state = state
+                    records[tx_id].updated_at = time.time()
+        return records
+
     def list_active(self) -> List[JournalRecord]:
-        records = self._read_records()
+        records = self._apply_pending_overlay(self._read_records())
         return list(records.values())
 
     def get_orphaned(self) -> List[JournalRecord]:
         """Returns records that are still active/in-flight on disk."""
-        records = self._read_records()
+        records = self._apply_pending_overlay(self._read_records())
         orphaned = []
         for rec in records.values():
             wt_path = Path(rec.worktree_path)

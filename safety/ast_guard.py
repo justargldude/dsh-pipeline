@@ -1,8 +1,8 @@
 import re
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set, Tuple
-import tree_sitter_c_sharp as tscsharp
 from tree_sitter import Language, Parser, Node
+from safety.tree_sitter_shared import get_csharp_language
 
 
 class ASTViolationError(Exception):
@@ -119,7 +119,8 @@ class ASTGuard:
     }
 
     def __init__(self):
-        self.language = Language(tscsharp.language())
+        # Shared cached Language instance (Opt 8.3); Parser stays per-instance (lightweight).
+        self.language = get_csharp_language()
         self.parser = Parser(self.language)
 
     def _get_enclosing_type(self, node: Node, code_bytes: bytes) -> Tuple[str, str]:
