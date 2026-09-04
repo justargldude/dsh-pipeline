@@ -2,6 +2,7 @@ import json
 import os
 import shlex
 import subprocess
+import sys
 from pathlib import Path
 from typing import Dict, List, Optional
 import typer
@@ -478,14 +479,30 @@ def orchestrate(
         dev_model = dev_model or "mock-dev"
 
     if not qa_model or not dev_model:
-        console.print("[bold red]Subagent Configuration Error:[/bold red] QA and Dev models must not be hardcoded or assumed.")
-        console.print(
-            "You must explicitly specify both the QA model (Auditor/Reviewer) and Dev model (Coder):\n"
-            "  --qa <model>  (e.g., agy, claude, codex, deepseek)\n"
-            "  --dev <model> (e.g., deepseek, codex, claude, agy)\n"
-            "\n[dim]Tip: Check active CLIs on this machine with `ask --status`.[/dim]"
-        )
-        raise typer.Exit(code=1)
+        if sys.stdin.isatty():
+            from rich.prompt import Prompt
+            console.print("[bold yellow]Subagent Selection Required:[/bold yellow] QA and Dev models were not specified.")
+            if not qa_model:
+                qa_model = Prompt.ask(
+                    "[bold magenta]Choose QA model[/bold magenta] (Auditor/Reviewer)",
+                    choices=["agy", "claude", "codex", "deepseek"],
+                    default="agy",
+                )
+            if not dev_model:
+                dev_model = Prompt.ask(
+                    "[bold blue]Choose Dev model[/bold blue] (Coder)",
+                    choices=["deepseek", "codex", "claude", "agy"],
+                    default="deepseek",
+                )
+        else:
+            console.print("[bold red]Subagent Configuration Error:[/bold red] QA and Dev models must not be hardcoded or assumed.")
+            console.print(
+                "You must explicitly specify both the QA model (Auditor/Reviewer) and Dev model (Coder):\n"
+                "  --qa <model>  (e.g., agy, claude, codex, deepseek)\n"
+                "  --dev <model> (e.g., deepseek, codex, claude, agy)\n"
+                "\n[dim]Action for AI Agent: Stop and ask the user to confirm model roles.[/dim]"
+            )
+            raise typer.Exit(code=1)
 
 
     console.print(f"[bold green]Starting Autonomous Orchestration on:[/bold green] {resolved_repo}")
