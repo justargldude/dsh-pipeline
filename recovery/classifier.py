@@ -3,6 +3,7 @@ from typing import Optional
 from build.sandbox import BuildResult
 from safety.scope_guard import ScopeViolationError
 from safety.patch_validator import PatchValidationError
+from core.workspace import WorktreeStagingError, WorktreeCleanupError
 
 
 class FailureType(str, Enum):
@@ -69,6 +70,10 @@ class FailureClassifier:
     def classify_exception(cls, exc: Exception) -> FailureType:
         if isinstance(exc, ScopeViolationError):
             return FailureType.SCOPE_VIOLATION
+        if isinstance(exc, WorktreeStagingError):
+            return FailureType.TRANSACTION_INTEGRITY_FAILURE
+        if isinstance(exc, WorktreeCleanupError):
+            return FailureType.ROLLBACK_FAILED
         if isinstance(exc, (PatchValidationError, ValueError)):
             return FailureType.PATCH_INVALID
         return FailureType.UNKNOWN

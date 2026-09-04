@@ -271,23 +271,29 @@ class ASTGuard:
             curr = stack.pop()
             if curr.type == "invocation_expression":
                 call_text = code_bytes[curr.start_byte:curr.end_byte].decode("utf-8", errors="replace")
-                if "assert" in call_text.lower():
-                    # Extract argument list
-                    predicate_text = ""
-                    for child in curr.children:
-                        if child.type == "argument_list":
-                            args = [
-                                code_bytes[arg.start_byte:arg.end_byte].decode("utf-8", errors="replace").strip()
-                                for arg in child.children
-                                if arg.type == "argument"
-                            ]
-                            if args:
-                                predicate_text = args[0]
-                            break
+                # Only classify as an assertion by the CALLEE text, not by the
+                # whole invocation (arguments may contain the word "assert" in
+                # an unrelated string literal, e.g. Logger.Warn("removed assert check")).
+                func_node = curr.child_by_field_name("function")
+                if func_node is not None:
+                    callee_text = code_bytes[func_node.start_byte:func_node.end_byte].decode("utf-8", errors="replace")
+                    if "assert" in callee_text.lower():
+                        # Extract argument list
+                        predicate_text = ""
+                        for child in curr.children:
+                            if child.type == "argument_list":
+                                args = [
+                                    code_bytes[arg.start_byte:arg.end_byte].decode("utf-8", errors="replace").strip()
+                                    for arg in child.children
+                                    if arg.type == "argument"
+                                ]
+                                if args:
+                                    predicate_text = args[0]
+                                break
 
-                    cleaned_pred = predicate_text.replace(" ", "").lower()
-                    is_tautology = cleaned_pred in self.TAUTOLOGICAL_ASSERT_PATTERNS
-                    asserts.append((call_text, predicate_text, is_tautology))
+                        cleaned_pred = predicate_text.replace(" ", "").lower()
+                        is_tautology = cleaned_pred in self.TAUTOLOGICAL_ASSERT_PATTERNS
+                        asserts.append((call_text, predicate_text, is_tautology))
 
             stack.extend(curr.children)
 
@@ -374,6 +380,22 @@ class ASTGuard:
         old_methods = {s.identity_key: s for s in old_symbols if s.kind in ("method", "constructor")}
         new_methods = {s.identity_key: s for s in new_symbols if s.kind in ("method", "constructor")}
         deleted_methods = set(old_methods.keys()) - set(new_methods.keys())
+        if target_symbols:
+            # An identity_key that vanished solely because a target symbol's
+            # signature changed is not a real deletion: exclude keys whose OLD
+            # symbol matches a target pattern AND a new method with the same
+            # fully-qualified name still exists (re-declared with a new
+            # signature). True deletions (no new method of that name) still
+            # raise below, and step 4 keeps enforcing the target boundary for
+            # the newly added signature.
+            new_method_fqns = {s.full_qualified_name for s in new_methods.values()}
+            deleted_methods = {
+                k for k in deleted_methods
+                if not (
+                    any(old_methods[k].matches_target(ts) for ts in target_symbols)
+                    and old_methods[k].full_qualified_name in new_method_fqns
+                )
+            }
         if deleted_methods:
             deleted_names = [old_methods[k].signature for k in deleted_methods]
             raise ASTViolationError(f"Disallowed method deletion in '{file_path}': {deleted_names}")

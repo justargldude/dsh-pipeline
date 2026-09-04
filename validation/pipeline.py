@@ -118,7 +118,24 @@ class ValidationPipeline:
         # 4. T2 - Behavioral (if validator configured)
         if self.behavioral_validator is not None:
             beh_res = self.behavioral_validator.validate_behavior(repo_path, task.task_id)
-            if not beh_res.success:
+            if baseline is not None and baseline.behavioral_result is not None:
+                # Compare against baseline: only NEW behavioral failures (i.e.
+                # regressions introduced by the patch) fail T2. Pre-existing
+                # failures already present in the baseline are tolerated.
+                is_regression, new_failures = BaselineManager.compare_behavioral(
+                    baseline.behavioral_result, beh_res
+                )
+                if is_regression:
+                    return ValidationReport(
+                        success=False,
+                        failed_tier=ValidationTier.T2_BEHAVIORAL,
+                        failure_type=FailureType.BEHAVIORAL,
+                        error_message=f"[T2 Behavioral Failure] " + "; ".join(new_failures),
+                        details={"failures": new_failures},
+                    )
+            elif not beh_res.success:
+                # No baseline behavioral result captured: keep legacy behavior
+                # (any post-patch behavioral failure fails T2).
                 return ValidationReport(
                     success=False,
                     failed_tier=ValidationTier.T2_BEHAVIORAL,

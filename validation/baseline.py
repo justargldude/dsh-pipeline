@@ -159,3 +159,24 @@ class BaselineManager:
 
         is_regression = len(new_broken) > 0
         return is_regression, new_broken
+
+    @staticmethod
+    def compare_behavioral(
+        baseline_behavioral: Optional[BehavioralCheckResult],
+        post_behavioral: BehavioralCheckResult,
+    ) -> Tuple[bool, List[str]]:
+        """Compares post-patch behavioral failures against baseline behavioral failures.
+
+        Returns:
+            (is_regression, new_failures)
+        """
+        if baseline_behavioral is None:
+            # No baseline captured: any post-patch failure is treated as a
+            # regression (fallback behavior, mirroring T3 without baseline).
+            return (not post_behavioral.success, list(post_behavioral.failures))
+
+        baseline_failures = set(baseline_behavioral.failures)
+        new_failures = [f for f in post_behavioral.failures if f not in baseline_failures]
+
+        is_regression = len(new_failures) > 0
+        return is_regression, new_failures

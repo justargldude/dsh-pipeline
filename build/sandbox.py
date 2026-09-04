@@ -3,6 +3,7 @@ import logging
 import os
 import signal
 import subprocess
+import time
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -37,10 +38,15 @@ def terminate_process_tree(proc: subprocess.Popen, timeout_grace: float = 0.5):
         return
 
     pid = proc.pid
+    pgid = None
     try:
         # On POSIX systems with start_new_session=True, kill the process group
         if hasattr(os, "killpg") and hasattr(os, "getpgid"):
             try:
+                # Capture the pgid up-front: the direct child may exit (and be
+                # reaped by proc.wait below) while grandchildren in the same
+                # group are still alive, at which point os.getpgid(pid) would
+                # already raise ProcessLookupError.
                 pgid = os.getpgid(pid)
                 os.killpg(pgid, signal.SIGTERM)
             except (ProcessLookupError, PermissionError):
@@ -51,15 +57,51 @@ def terminate_process_tree(proc: subprocess.Popen, timeout_grace: float = 0.5):
         try:
             proc.wait(timeout=timeout_grace)
         except subprocess.TimeoutExpired:
-            if hasattr(os, "killpg") and hasattr(os, "getpgid"):
+            if pgid is not None:
                 try:
-                    pgid = os.getpgid(pid)
                     os.killpg(pgid, signal.SIGKILL)
                 except (ProcessLookupError, PermissionError):
                     proc.kill()
             else:
                 proc.kill()
             proc.wait(timeout=1.0)
+
+        # Final confirmation: the direct child may exit on SIGTERM while
+        # grandchildren in the same process group survive it (e.g. SIG_IGN).
+        # Verify the whole group is gone and, if not, escalate with one more
+        # best-effort SIGKILL to the group, then wait briefly (bounded, no
+        # infinite loop). Never raise from this confirmation step.
+        if hasattr(os, "killpg") and hasattr(os, "getpgid") and pgid is not None:
+            group_alive = True
+            try:
+                os.killpg(pgid, 0)
+            except ProcessLookupError:
+                group_alive = False
+            except PermissionError:
+                # Group exists but is owned by another user; we cannot
+                # verify or signal it further. Treat as cleaned up.
+                group_alive = False
+
+            if group_alive:
+                try:
+                    os.killpg(pgid, signal.SIGKILL)
+                except (ProcessLookupError, PermissionError):
+                    pass
+                # Bounded wait (<=1s) for the group to settle; poll with
+                # killpg(pgid, 0) until it raises ProcessLookupError.
+                deadline = time.monotonic() + 1.0
+                while time.monotonic() < deadline:
+                    try:
+                        os.killpg(pgid, 0)
+                    except ProcessLookupError:
+                        break
+                    except PermissionError:
+                        break
+                    time.sleep(0.1)
+                else:
+                    logger.warning(
+                        f"Orphan processes may remain in process group {pgid} after SIGKILL"
+                    )
     except (ProcessLookupError, PermissionError):
         pass
     except Exception as e:

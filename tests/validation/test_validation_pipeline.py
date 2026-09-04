@@ -4,7 +4,6 @@ import pytest
 
 from task.schema import TaskDefinition, PatchProposal, FilePatch, PatchHunk, RiskLevel
 from recovery.classifier import FailureType
-from validation.behavioral import MockBehavioralValidator
 from validation.regression import BaseRegressionValidator, MockRegressionValidator
 from core.runtime import DSHRuntime
 
@@ -48,8 +47,28 @@ def test_validation_all_tiers_pass(temp_git_repo: Path):
 
 
 def test_validation_t2_behavioral_failure(temp_git_repo: Path):
-    # Failing behavioral validator
-    failing_behavioral = MockBehavioralValidator(should_succeed=False, failures=["Hook failed to trigger in smoke test."])
+    # Behavioral validator that passes on baseline but fails post-patch
+    # (a behavioral regression actually caused by the patch). Updated per
+    # contract change: T2 now compares post-patch failures against the
+    # baseline, so a fixture failing identically in both captures is a
+    # pre-existing failure, not a regression.
+    from validation.behavioral import BaseBehavioralValidator, BehavioralCheckResult
+
+    class PostPatchBehavioralValidator(BaseBehavioralValidator):
+        def __init__(self):
+            self.calls = 0
+
+        def validate_behavior(self, repo_path: Path, task_id: str) -> BehavioralCheckResult:
+            self.calls += 1
+            if self.calls == 1:
+                return BehavioralCheckResult(success=True, output="Baseline behavioral clean")
+            return BehavioralCheckResult(
+                success=False,
+                failures=["Hook failed to trigger in smoke test."],
+                output="Behavioral test failure.",
+            )
+
+    failing_behavioral = PostPatchBehavioralValidator()
     runtime = DSHRuntime(temp_git_repo, behavioral_validator=failing_behavioral, dry_run=False, test_mode=True)
 
     task = TaskDefinition(
