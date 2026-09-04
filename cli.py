@@ -478,14 +478,15 @@ def orchestrate(
         dev_model = dev_model or "mock-dev"
 
     if not qa_model or not dev_model:
-        console.print("[bold red]Lỗi cấu hình Subagent:[/bold red] Không được hardcode mặc định model QA và Dev.")
+        console.print("[bold red]Subagent Configuration Error:[/bold red] QA and Dev models must not be hardcoded or assumed.")
         console.print(
-            "Bạn cần chỉ định rõ model QA (Auditor/Reviewer) và Dev (Coder) qua tham số CLI hoặc biến môi trường:\n"
-            "  --qa <model>  (ví dụ: agy, claude, codex, deepseek)\n"
-            "  --dev <model> (ví dụ: deepseek, codex, claude, agy)\n"
-            "\n[dim]Gợi ý: Dùng `ask --status` để xem danh sách subagent đang active trên máy.[/dim]"
+            "You must explicitly specify both the QA model (Auditor/Reviewer) and Dev model (Coder):\n"
+            "  --qa <model>  (e.g., agy, claude, codex, deepseek)\n"
+            "  --dev <model> (e.g., deepseek, codex, claude, agy)\n"
+            "\n[dim]Tip: Check active CLIs on this machine with `ask --status`.[/dim]"
         )
         raise typer.Exit(code=1)
+
 
     console.print(f"[bold green]Starting Autonomous Orchestration on:[/bold green] {resolved_repo}")
     console.print(f"[bold cyan]Goal:[/bold cyan] {goal}")

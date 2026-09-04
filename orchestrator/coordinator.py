@@ -227,26 +227,28 @@ Provide a concise 3-5 line code review evaluating:
 
         # 4. Generate Final Human-Readable Summary
         lines = [
-            f"# BÁO CÁO ĐIỀU PHỐI TỰ ĐỘNG: {user_goal}",
+            f"# AUTONOMOUS ORCHESTRATION REPORT: {user_goal}",
             f"**Target Repository:** `{self.target_repo}`",
+            f"**QA Subagent:** `{self.qa_client.name}` | **Dev Provider:** `{type(self.dev_provider).__name__}`",
             f"**Framework:** {audit_report.detected_framework}",
-            f"**Chế độ (Dry-run):** {self.dry_run}",
-            f"**Tổng kết Khảo sát:** {audit_report.summary}",
+            f"**Dry-run Mode:** {self.dry_run}",
+            f"**Audit Summary:** {audit_report.summary}",
             "",
-            "## Kết quả từng đầu việc (TDD Tasks):",
+            "## TDD Task Execution Outcomes:",
         ]
         for rec in execution_records:
-            status_icon = "✅ THÀNH CÔNG" if rec.success else "❌ THẤT BẠI"
+            status_icon = "✅ SUCCESS" if rec.success else "❌ FAILED"
             lines.append(f"### [{rec.task_id}] {rec.title} — {status_icon}")
             if rec.commit_hash:
                 lines.append(f"- **Commit:** `{rec.commit_hash}`")
             if rec.error_message:
-                lines.append(f"- **Lỗi:** `{rec.error_message}`")
+                lines.append(f"- **Error:** `{rec.error_message}`")
             if rec.review_verdict:
-                lines.append(f"- **Antigravity Review:**\n> {rec.review_verdict.strip().replace(chr(10), chr(10)+'> ')}")
+                lines.append(f"- **QA Review:**\n> {rec.review_verdict.strip().replace(chr(10), chr(10)+'> ')}")
             lines.append("")
 
         final_report = "\n".join(lines)
+
 
         return OrchestrationResult(
             success=overall_success,

@@ -6,3 +6,6 @@ __pycache__/
 *.db
 .dsh_worktrees/
 .env
+.scratch/
+local-plugins
+translation-work

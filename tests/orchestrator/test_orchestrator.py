@@ -158,7 +158,8 @@ def test_autonomous_coordinator_end_to_end():
         assert res.tasks[0].task_id == "T_CALC_01"
         assert res.tasks[0].success is True
         assert "APPROVED" in res.tasks[0].review_verdict
-        assert "BÁO CÁO ĐIỀU PHỐI TỰ ĐỘNG" in res.final_report
+        assert "AUTONOMOUS ORCHESTRATION REPORT" in res.final_report
+
 
 
 def test_cli_orchestrate_command_test_mode():
@@ -208,7 +209,8 @@ def test_cli_orchestrate_missing_models_error():
             env={},  # empty env to ensure no DSH_QA_MODEL / DSH_DEV_MODEL
         )
         assert result.exit_code == 1
-        assert "Không được hardcode mặc định model QA và Dev" in result.stdout
+        assert "Subagent Configuration Error" in result.stdout
+
 
 
 def test_subagent_factories():
