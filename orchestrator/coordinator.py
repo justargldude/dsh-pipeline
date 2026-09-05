@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import shlex
 import subprocess
 from pathlib import Path
@@ -83,6 +84,47 @@ class AutonomousCoordinator:
         else:
             self.dev_provider = create_dev_provider(dev_name, test_mode=test_mode)
         self.deepseek = deepseek  # backwards-compatible alias
+
+    def _manifest_init(self, run_dir: Path) -> Path:
+        """Creates the run directory and an empty manifest.json."""
+        run_dir = Path(run_dir)
+        run_dir.mkdir(parents=True, exist_ok=True)
+        manifest_path = run_dir / "manifest.json"
+        if not manifest_path.exists():
+            self._manifest_atomic_write(manifest_path, {"tasks": {}})
+        return manifest_path
+
+    def _manifest_update(
+        self,
+        run_dir: Path,
+        task_id: str,
+        attempt: int,
+        status: str,
+        failure_reason: Optional[str] = None,
+        worktree_path: Optional[str] = None,
+    ) -> None:
+        """Updates one task's state in run_dir/manifest.json atomically."""
+        manifest_path = Path(run_dir) / "manifest.json"
+        data = {"tasks": {}}
+        if manifest_path.exists():
+            try:
+                data = json.loads(manifest_path.read_text(encoding="utf-8"))
+            except Exception:
+                data = {"tasks": {}}
+        entry = data["tasks"].get(task_id, {"task_id": task_id})
+        entry["task_id"] = task_id
+        entry["status"] = status
+        entry["attempts"] = max(int(entry.get("attempts", 0)), int(attempt))
+        entry["failure_reason"] = failure_reason
+        entry["worktree_path"] = worktree_path
+        data["tasks"][task_id] = entry
+        self._manifest_atomic_write(manifest_path, data)
+
+    @staticmethod
+    def _manifest_atomic_write(manifest_path: Path, data: Dict[str, Any]) -> None:
+        tmp = manifest_path.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        os.replace(tmp, manifest_path)
 
     def _write_red_test_to_main(self, task: PlannedTask) -> bool:
         """Writes the QA red test into the main repo (unchanged legacy path)."""
