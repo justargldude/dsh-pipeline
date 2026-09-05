@@ -72,8 +72,8 @@ def test_smoke_check_runs_before_write_to_main(tmp_path: Path, monkeypatch):
     from task.schema import TransactionResult
     monkeypatch.setattr(
         DSHRuntime, "execute_with_recovery",
-        lambda self, task_arg, provider, context_builder: TransactionResult(
-            task_id=task_arg.task_id, success=True, commit_hash="abc", dry_run=True,
+        lambda self, task=None, provider=None, context_builder=None: TransactionResult(
+            task_id=getattr(task, "task_id", "T"), success=True, commit_hash="abc", dry_run=True,
         ),
     )
     monkeypatch.setattr(coord, "_review_diff_with_qa", lambda t, d: "APPROVED")
