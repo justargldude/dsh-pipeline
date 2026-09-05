@@ -67,10 +67,10 @@ class RecoveryHistory(BaseModel):
             lines.append(f"### Attempt {att.attempt_index} (Model: {att.model_type_used})")
             lines.append(f"- What Failed: [{att.failure_type.value}]")
             
-            # Truncate error message concisely to root cause
+            # Preserve root cause error details (typically at the end of the traceback)
             err_summary = att.error_message.strip()
-            if len(err_summary) > 200:
-                err_summary = err_summary[:200] + "..."
+            if len(err_summary) > 300:
+                err_summary = "..." + err_summary[-300:]
             lines.append(f"- Why It Failed: {err_summary}")
 
             # Concise summary of what was attempted without dumping raw full patch JSON
