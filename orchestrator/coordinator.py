@@ -361,7 +361,7 @@ Provide a concise 3-5 line code review evaluating:
                 logger.error(f"[COORDINATOR] Task {task.task_id} failed: {tx_res.error_message}")
 
             self._manifest_update(
-                run_dir,
+                self._run_dir,
                 task_id=task.task_id,
                 attempt=1,
                 status="PASSED" if tx_res.success else "FAILED",
