@@ -3,6 +3,7 @@ import logging
 import os
 import shlex
 import subprocess
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
@@ -84,6 +85,28 @@ class AutonomousCoordinator:
         else:
             self.dev_provider = create_dev_provider(dev_name, test_mode=test_mode)
         self.deepseek = deepseek  # backwards-compatible alias
+        # QA round-2 F-01: run manifest dir allowance; set in run().
+        self._run_dir: Optional[Path] = None
+
+    def _red_test_worktree_callback(self, task: PlannedTask):
+        """Returns a callback that copies this task's red test into each
+        transaction worktree right after creation (before baseline capture),
+        fixing false-green validation that ran without the red test."""
+        def _callback(worktree_path) -> None:
+            try:
+                self._ensure_red_test_in_worktree(task, Path(worktree_path))
+            except Exception as e:
+                logger.warning(f"[COORDINATOR] Red-test worktree propagation failed: {e}")
+        return _callback
+
+    def _untracked_allowance_for_manifest(self) -> Optional[List[str]]:
+        """Untracked paths the manifest dir occupies (F-01)."""
+        if getattr(self, "_run_dir", None) is None:
+            return None
+        try:
+            return [str(self._run_dir.relative_to(self.target_repo))]
+        except ValueError:
+            return None
 
     def _manifest_init(self, run_dir: Path) -> Path:
         """Creates the run directory and an empty manifest.json."""
@@ -122,9 +145,8 @@ class AutonomousCoordinator:
 
     @staticmethod
     def _manifest_atomic_write(manifest_path: Path, data: Dict[str, Any]) -> None:
-        tmp = manifest_path.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
-        os.replace(tmp, manifest_path)
+        from safety.patch_engine import atomic_write_file
+        atomic_write_file(manifest_path, json.dumps(data, indent=2))
 
     def _write_red_test_to_main(self, task: PlannedTask) -> bool:
         """Writes the QA red test into the main repo (unchanged legacy path)."""
@@ -240,8 +262,8 @@ Provide a concise 3-5 line code review evaluating:
 
         # 2. PHA 2 & 3: Iterate over tasks with Dev Subagent + Pipeline Sandbox
         context_builder = ContextBuilder()
-        run_dir = self.target_repo / f"run_{int(__import__('time').time())}"
-        self._manifest_init(run_dir)
+        self._run_dir = self.target_repo / f"run_{int(time.time())}"
+        self._manifest_init(self._run_dir)
 
         for task in audit_report.tasks:
             logger.info(f"[COORDINATOR] Executing task {task.task_id}: {task.title}")
@@ -298,6 +320,13 @@ Provide a concise 3-5 line code review evaluating:
 
             # Execute via Recovery Loop (Dev Subagent)
             provider = self.dev_provider
+            # F-02: wire red-test propagation into every transaction worktree
+            # via the runtime's on_worktree_created callback.
+            runtime.on_worktree_created = self._red_test_worktree_callback(task)
+            if self._run_dir is not None:
+                allowance = set(runtime.allowed_untracked_paths or [])
+                allowance.add(str(self._run_dir.relative_to(self.target_repo)))
+                runtime.allowed_untracked_paths = sorted(allowance)
             tx_res: TransactionResult = runtime.execute_with_recovery(
                 task=task_def,
                 provider=provider,
