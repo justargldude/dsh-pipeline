@@ -79,15 +79,20 @@ class AutonomousPlanner:
         # 2. Identify key manifests & project types
         pkg_json = self.target_repo / "package.json"
         if pkg_json.exists():
+            data = None
             try:
                 data = json.loads(pkg_json.read_text(encoding="utf-8"))
+            except Exception as e:
+                logger.warning(f"[PLANNER] Malformed package.json ({e}); using Node.js fallbacks.")
+            if data is not None:
                 profile["framework"] = "nodejs"
+                scripts = data.get("scripts") if isinstance(data.get("scripts"), dict) else {}
                 profile["manifests"]["package.json"] = {
                     "name": data.get("name"),
-                    "scripts": data.get("scripts", {}),
+                    "scripts": scripts,
                     "main": data.get("main"),
                 }
-                if "test" in data.get("scripts", {}):
+                if "test" in scripts:
                     profile["default_test_cmd"] = "npm test"
                 else:
                     profile["default_test_cmd"] = "node --test tests/"
@@ -95,12 +100,16 @@ class AutonomousPlanner:
                 # declared build script or, failing that, the test command
                 # itself. Leaving default_build_cmd None hard-fails the
                 # runtime with BUILD_CONFIGURATION_MISSING.
-                if "build" in data.get("scripts", {}):
+                if "build" in scripts:
                     profile["default_build_cmd"] = "npm run build"
                 else:
                     profile["default_build_cmd"] = profile["default_test_cmd"]
-            except Exception:
-                pass
+            else:
+                # F-05: malformed manifest must still yield usable commands,
+                # never None (which hard-crashes with CONFIG_MISSING).
+                profile["framework"] = "nodejs"
+                profile["default_test_cmd"] = "node --test tests/"
+                profile["default_build_cmd"] = "node --test tests/"
 
         # Python projects
         if (self.target_repo / "pytest.ini").exists() or (self.target_repo / "requirements.txt").exists():
