@@ -66,6 +66,13 @@ Do NOT wrap your output in explanations. Output ONLY valid JSON with this struct
 }
 """
 
+    # QA round-2 F-02: optional callback invoked with the worktree path right
+    # after create_transaction_worktree, before validation and baseline
+    # capture. The coordinator installs it to propagate red tests into the
+    # transaction worktree. Declared class-level so feature presence is
+    # introspectable via hasattr(DSHRuntime, "on_worktree_created").
+    on_worktree_created = None
+
     def __init__(
         self,
         workspace_path: Path,
@@ -340,6 +347,18 @@ Do NOT wrap your output in explanations. Output ONLY valid JSON with this struct
             )
             self._log_event(PipelineEvent.CHECKPOINT_CREATED, task.task_id, f"Isolated worktree created for {tx_id} at {tx_worktree.worktree_path}")
             events.append(PipelineEvent.CHECKPOINT_CREATED.value)
+
+            # QA round-2 F-02: give the coordinator a chance to propagate
+            # red tests into the fresh worktree BEFORE any validation runs.
+            if self.on_worktree_created is not None:
+                try:
+                    self.on_worktree_created(tx_worktree.worktree_path)
+                except Exception as cb_err:
+                    self._log_event(
+                        PipelineEvent.FAILURE_CLASSIFIED,
+                        task.task_id,
+                        f"on_worktree_created callback failed: {cb_err}",
+                    )
 
             # 2. Pre-apply Validation (T0 Structural + T4 Risk) executed in worktree
             self.ws.journal.update_state(tx_id, TransactionState.VALIDATING)
