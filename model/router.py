@@ -22,14 +22,15 @@ class ModelRouter:
 
         # Rule 3: Failure-based routing during recovery loop
         if failure_type:
+            # Structural patch failures (PATCH_INVALID) and semantic type
+            # errors repeat when the same FAST model is retried on the very
+            # failure it just produced; escalate to REASONING on attempt >= 1.
             if failure_type == FailureType.SYNTAX:
                 return ModelType.FAST
-            if failure_type == FailureType.TYPE_SEMANTIC:
-                return ModelType.FAST if attempt <= 1 else ModelType.REASONING
+            if failure_type in (FailureType.TYPE_SEMANTIC, FailureType.PATCH_INVALID):
+                return ModelType.FAST if attempt < 1 else ModelType.REASONING
             if failure_type in (FailureType.BEHAVIORAL, FailureType.UNKNOWN):
                 return ModelType.REASONING
-            if failure_type == FailureType.PATCH_INVALID:
-                return ModelType.FAST
 
         # Rule 4: Missing (None) or Low (< 0.85) confidence evidence requires Reasoning.
         # Missing evidence is UNKNOWN and must never default to 1.0 or FAST path.
