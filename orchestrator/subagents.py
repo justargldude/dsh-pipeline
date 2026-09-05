@@ -253,6 +253,7 @@ def create_dev_provider(
             base_url=base_url,
             fast_model=fast_model,
             reasoning_model=reasoning_model,
+            timeout_seconds=int(os.environ.get("QWEN_TIMEOUT", "180")),
         )
 
     # Default: DeepSeek / OpenAI-compatible endpoint
