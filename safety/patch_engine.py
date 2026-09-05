@@ -59,6 +59,11 @@ def atomic_write_file(
             f.write(normalized_content.encode(encoding))
             f.flush()
             os.fsync(f.fileno())
+        # Preserve existing file mode across the atomic replace: temp files
+        # are created with umask-default permissions, so os.replace() alone
+        # silently downgrades executables (0755 -> 0644).
+        if target.exists():
+            os.chmod(temp_path, os.stat(target).st_mode)
         os.replace(temp_path, target)
     except Exception as e:
         if temp_path.exists():
