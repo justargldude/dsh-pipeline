@@ -91,6 +91,14 @@ class AutonomousPlanner:
                     profile["default_test_cmd"] = "npm test"
                 else:
                     profile["default_test_cmd"] = "node --test tests/"
+                # Node repos have no compiler: the build gate is either the
+                # declared build script or, failing that, the test command
+                # itself. Leaving default_build_cmd None hard-fails the
+                # runtime with BUILD_CONFIGURATION_MISSING.
+                if "build" in data.get("scripts", {}):
+                    profile["default_build_cmd"] = "npm run build"
+                else:
+                    profile["default_build_cmd"] = profile["default_test_cmd"]
             except Exception:
                 pass
 
@@ -98,6 +106,8 @@ class AutonomousPlanner:
         if (self.target_repo / "pytest.ini").exists() or (self.target_repo / "requirements.txt").exists():
             profile["framework"] = "python"
             profile["default_test_cmd"] = "pytest"
+            if not profile["default_build_cmd"]:
+                profile["default_build_cmd"] = "pytest"
 
         # .NET / C# projects
         csproj_files = list(self.target_repo.glob("*.csproj"))
