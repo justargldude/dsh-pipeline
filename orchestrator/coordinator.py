@@ -240,6 +240,8 @@ Provide a concise 3-5 line code review evaluating:
 
         # 2. PHA 2 & 3: Iterate over tasks with Dev Subagent + Pipeline Sandbox
         context_builder = ContextBuilder()
+        run_dir = self.target_repo / f"run_{int(__import__('time').time())}"
+        self._manifest_init(run_dir)
 
         for task in audit_report.tasks:
             logger.info(f"[COORDINATOR] Executing task {task.task_id}: {task.title}")
@@ -328,6 +330,15 @@ Provide a concise 3-5 line code review evaluating:
             else:
                 overall_success = False
                 logger.error(f"[COORDINATOR] Task {task.task_id} failed: {tx_res.error_message}")
+
+            self._manifest_update(
+                run_dir,
+                task_id=task.task_id,
+                attempt=1,
+                status="PASSED" if tx_res.success else "FAILED",
+                failure_reason=None if tx_res.success else (tx_res.error_message or "unknown"),
+                worktree_path=tx_res.worktree_path,
+            )
 
             execution_records.append(
                 TaskExecutionRecord(
