@@ -185,19 +185,25 @@ def create_qa_client(model_or_cli: str, test_mode: bool = False) -> SubagentClie
         if ask_ds:
             return SubagentClient(name="deepseek", cli_command=[ask_ds], test_mode=False)
 
-    # 5. Fallback router: 'ask' CLI
+    # 5. Qwen
+    if name in ["qwen", "qwen3"] or "qwen" in name:
+        ask_qwen = shutil.which("ask-qwen")
+        if ask_qwen:
+            return SubagentClient(name="qwen", cli_command=[ask_qwen], test_mode=False)
+
+    # 6. Fallback router: 'ask' CLI
     ask_router = shutil.which("ask")
     if ask_router:
         return SubagentClient(name=name, cli_command=[ask_router, "-m", name], test_mode=False)
 
-    # 6. Fallback to direct binary if named matches something in PATH
+    # 7. Fallback to direct binary if named matches something in PATH
     bin_path = shutil.which(name)
     if bin_path:
         return SubagentClient(name=name, cli_command=[bin_path], test_mode=False)
 
     raise RuntimeError(
         f"Could not resolve CLI for QA model '{name}'. "
-        f"Available CLIs in PATH: ask, ask-agy, ask-claude, ask-codex, ask-ds."
+        f"Available CLIs in PATH: ask, ask-agy, ask-claude, ask-codex, ask-ds, ask-qwen."
     )
 
 
@@ -230,6 +236,24 @@ def create_dev_provider(
         )
 
     name = (model_or_cli or "deepseek").lower().strip()
+
+    if "qwen" in name:
+        base_url = os.environ.get("QWEN_BASE_URL", "http://127.0.0.1:8200/v1")
+        api_key = os.environ.get("QWEN_API_KEY", "sk-justar-local-qwen")
+        fast_model = "qwen3.7-plus"
+        reasoning_model = "qwen3.8-max"
+        if "max" in name or "3.8" in name:
+            fast_model = "qwen3.8-max"
+            reasoning_model = "qwen3.8-max"
+        elif "plus" in name or "3.7" in name:
+            fast_model = "qwen3.7-plus"
+            reasoning_model = "qwen3.7-plus"
+        return OpenAICompatibleProvider(
+            api_key=api_key,
+            base_url=base_url,
+            fast_model=fast_model,
+            reasoning_model=reasoning_model,
+        )
 
     # Default: DeepSeek / OpenAI-compatible endpoint
     base_url = os.environ.get("DEEPSEEK_BASE_URL", "http://127.0.0.1:8100/v1")

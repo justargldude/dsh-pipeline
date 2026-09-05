@@ -491,15 +491,15 @@ def orchestrate(
             if not dev_model:
                 dev_model = Prompt.ask(
                     "[bold blue]Choose Dev model[/bold blue] (Coder)",
-                    choices=["deepseek", "codex", "claude", "agy"],
+                    choices=["deepseek", "codex", "claude", "agy", "qwen"],
                     default="deepseek",
                 )
         else:
             console.print("[bold red]Subagent Configuration Error:[/bold red] QA and Dev models must not be hardcoded or assumed.")
             console.print(
                 "You must explicitly specify both the QA model (Auditor/Reviewer) and Dev model (Coder):\n"
-                "  --qa <model>  (e.g., agy, claude, codex, deepseek)\n"
-                "  --dev <model> (e.g., deepseek, codex, claude, agy)\n"
+                "  --qa <model>  (e.g., agy, claude, codex, deepseek, qwen)\n"
+                "  --dev <model> (e.g., deepseek, codex, claude, agy, qwen)\n"
                 "\n[dim]Action for AI Agent: Stop and ask the user to confirm model roles.[/dim]"
             )
             raise typer.Exit(code=1)
