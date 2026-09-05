@@ -77,8 +77,16 @@ class TestF01ManifestInAllowedUntracked:
     def test_run_dir_in_allowed_untracked_paths(self, tmp_path: Path):
         repo = _git_repo(tmp_path)
         coord = _coordinator(repo)
+        # Simulate what run() does: allocate the run dir, then expose allowance
+        coord._run_dir = repo / "run_123"
+        coord._manifest_init(coord._run_dir)
         assert coord._untracked_allowance_for_manifest() is not None
         assert any("run_" in p for p in coord._untracked_allowance_for_manifest())
+
+    def test_fresh_coordinator_allowance_is_none(self, tmp_path: Path):
+        repo = _git_repo(tmp_path)
+        coord = _coordinator(repo)
+        assert coord._untracked_allowance_for_manifest() is None
 
 
 class TestF02WorktreeCallbackWiring:
