@@ -31,7 +31,7 @@ class TaskExecutionRecord(BaseModel):
     success: bool
     commit_hash: Optional[str] = None
     diff_summary: Optional[str] = None
-    review_verdict: Optional[str] = None
+    review_verdict: Optional[Dict[str, Any]] = None
     error_message: Optional[str] = None
 
 
@@ -243,9 +243,14 @@ class AutonomousCoordinator:
         return after is None or after > before
 
     def _review_diff_with_qa(
-        self, task: PlannedTask, diff_text: str
-    ) -> str:
-        """Prompts the QA subagent to review the final diff produced by Dev."""
+        self, task: "PlannedTask", diff_text: str
+    ) -> Dict[str, Any]:
+        """Prompts the QA subagent to review the final diff produced by Dev.
+
+        The response is a strictly validated structured JSON verdict
+        ({verdict, flagged_risks, summary}); legacy prose responses and
+        responses with missing/invalid fields are rejected with ValueError.
+        """
         prompt = f"""You are the Lead Gatekeeper and Security/Quality Reviewer (Role: {self.qa_client.name}).
 A Dev subagent has implemented a patch for the following task:
 Task: [{task.task_id}] {task.title}
@@ -256,17 +261,36 @@ Description: {task.description}
 {diff_text[:4000]}
 ```
 
-Provide a concise 3-5 line code review evaluating:
-1. Correctness: Does the diff address the task without unintended side effects?
-2. Code Cleanliness & Security: Are there anti-patterns, stubs, or security leaks?
-3. Final Verdict: APPROVED or REJECTED with a one-sentence reason.
+Respond ONLY with a valid JSON object (no prose, no markdown fences) matching exactly:
+{{
+  "verdict": "APPROVED" or "REJECTED",
+  "flagged_risks": ["list of zero or more risks"],
+  "summary": "one-sentence rationale"
+}}
 """
+        response = self.qa_client.query(prompt)
         try:
-            return self.qa_client.query(prompt)
-        except Exception as e:
-            return f"Review skipped due to client error: {e}"
+            data = json.loads(response)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON response: {e}")
+        if not isinstance(data, dict):
+            raise ValueError("Invalid JSON response: expected a JSON object")
 
-    def _review_diff_with_antigravity(self, task: PlannedTask, diff_text: str) -> str:
+        verdict = data.get("verdict")
+        if verdict not in ("APPROVED", "REJECTED"):
+            raise ValueError("Invalid or missing required field: verdict (must be APPROVED or REJECTED)")
+
+        flagged = data.get("flagged_risks")
+        if not isinstance(flagged, list):
+            raise ValueError("Invalid or missing required field: flagged_risks (must be an array)")
+
+        summary = data.get("summary")
+        if not isinstance(summary, str):
+            raise ValueError("Invalid or missing required field: summary (must be a string)")
+
+        return data
+
+    def _review_diff_with_antigravity(self, task: PlannedTask, diff_text: str) -> Dict[str, Any]:
         """Backwards compatibility alias."""
         return self._review_diff_with_qa(task, diff_text)
 
@@ -381,7 +405,7 @@ Provide a concise 3-5 line code review evaluating:
 
                 # 3. PHA 4: Review by QA Subagent
                 review_verdict = self._review_diff_with_qa(task, diff_content)
-                logger.info(f"[COORDINATOR] QA review verdict: {review_verdict[:100]}")
+                logger.info(f"[COORDINATOR] QA review verdict: {json.dumps(review_verdict, ensure_ascii=False)[:200]}")
 
             else:
                 overall_success = False
@@ -427,7 +451,8 @@ Provide a concise 3-5 line code review evaluating:
             if rec.error_message:
                 lines.append(f"- **Error:** `{rec.error_message}`")
             if rec.review_verdict:
-                lines.append(f"- **QA Review:**\n> {rec.review_verdict.strip().replace(chr(10), chr(10)+'> ')}")
+                verdict_str = json.dumps(rec.review_verdict, ensure_ascii=False, indent=2)
+                lines.append(f"- **QA Review:**\n> {verdict_str.replace(chr(10), chr(10)+'> ')}")
             lines.append("")
 
         final_report = "\n".join(lines)

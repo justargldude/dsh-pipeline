@@ -121,7 +121,7 @@ def test_autonomous_coordinator_end_to_end():
             ],
         }
         antigravity.set_mock_response("Lead Architect", mock_plan)
-        antigravity.set_mock_response("Lead Gatekeeper", "APPROVED: Clean hook and no regression.")
+        antigravity.set_mock_response("Lead Gatekeeper", '{"verdict": "APPROVED", "flagged_risks": [], "summary": "Clean hook and no regression."}')
 
         # Mock DeepSeek provider
         deepseek = DeepSeekClient(test_mode=True)
@@ -157,7 +157,7 @@ def test_autonomous_coordinator_end_to_end():
         assert len(res.tasks) == 1
         assert res.tasks[0].task_id == "T_CALC_01"
         assert res.tasks[0].success is True
-        assert "APPROVED" in res.tasks[0].review_verdict
+        assert res.tasks[0].review_verdict["verdict"] == "APPROVED"
         assert "AUTONOMOUS ORCHESTRATION REPORT" in res.final_report
 
 

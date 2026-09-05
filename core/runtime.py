@@ -64,6 +64,11 @@ Do NOT wrap your output in explanations. Output ONLY valid JSON with this struct
   "reason": "...",
   "confidence": 0.95
 }
+
+CRITICAL REASONING DIRECTIVE:
+- Historical markdown files, notes, or diagnostic logs are past observations at specific timestamps - NOT immutable business rules.
+- Never assume an endpoint or external service is broken from old reports; always verify liveness with real-time execution before concluding.
+- If an explanation claims a wait or a block, treat it as an unverified hypothesis and test it from first principles.
 """
 
     # QA round-2 F-02: optional callback invoked with the worktree path right

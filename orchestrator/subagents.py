@@ -49,6 +49,14 @@ class SubagentClient:
                 if k in prompt:
                     return v if isinstance(v, str) else json.dumps(v)
             if any(term in prompt.lower() for term in ["schema", "json", "audit", "architect", "lead"]):
+                # Structured QA review contract: prompts asking for a JSON
+                # review verdict get a valid verdict object instead of prose.
+                if "verdict" in prompt and "flagged_risks" in prompt:
+                    return json.dumps({
+                        "verdict": "APPROVED",
+                        "flagged_risks": [],
+                        "summary": f"Mock {self.name}: Diff reviewed and approved.",
+                    })
                 return json.dumps({
                     "summary": f"Mock {self.name}: Autonomous Audit Plan completed.",
                     "detected_framework": "generic",

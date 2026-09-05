@@ -133,6 +133,20 @@ class RecoveryManager:
                 last_failure_type = FailureType.UNKNOWN
             last_error = result.error_message or "Unknown failure"
 
+            # Pending-integration guard: the patch already passed every
+            # validation tier and was committed in its worktree; only the
+            # fast-forward into a dirty main workspace is deferred.
+            # Re-running the model cannot make main cleaner, and would
+            # duplicate identical commits (waste observed in the field:
+            # 3 identical TASK_001 commits from 3 retry rounds).
+            if result.commit_hash and "PENDING_INTEGRATION" in (result.error_message or ""):
+                logger.info(
+                    f"[RECOVERY_STOPPED] Task {task.task_id} committed ({result.commit_hash[:7]}) "
+                    f"but integration is pending ({result.integration_status}); "
+                    "stopping retries to avoid duplicate commits."
+                )
+                return result
+
             # Check for hard stop on execution failure (e.g. SCOPE_VIOLATION, ROLLBACK_FAILED, UNKNOWN_STATE)
             if FailureClassifier.is_hard_stop(last_failure_type):
                 logger.error(f"[HARD_STOP] Non-recoverable execution failure: {last_failure_type.value}")

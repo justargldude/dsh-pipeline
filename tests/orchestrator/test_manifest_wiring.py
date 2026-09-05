@@ -24,7 +24,7 @@ class _ScriptedQA:
         return self._report.model_dump()
 
     def query(self, prompt, timeout=None):
-        return "ok"
+        return '{"verdict": "APPROVED", "flagged_risks": [], "summary": "ok"}'
 
 
 def _repo(tmp_path: Path) -> Path:

@@ -76,7 +76,7 @@ def test_smoke_check_runs_before_write_to_main(tmp_path: Path, monkeypatch):
             task_id=getattr(task, "task_id", "T"), success=True, commit_hash="abc", dry_run=True,
         ),
     )
-    monkeypatch.setattr(coord, "_review_diff_with_qa", lambda t, d: "APPROVED")
+    monkeypatch.setattr(coord, "_review_diff_with_qa", lambda t, d: {"verdict": "APPROVED", "flagged_risks": [], "summary": "ok"})
 
     coord.run(user_goal="g", max_tasks=1)
 
