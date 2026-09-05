@@ -148,7 +148,7 @@ class DAGScheduler:
 
                     dispatched_any = False
                     for task in ready_tasks:
-                        if task.task_id in active_set:
+                        if task.task_id in active_set or task.task_id in failed_set or task.task_id in aborted_set:
                             continue
 
                         # Check file lock
