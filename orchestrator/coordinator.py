@@ -268,10 +268,11 @@ Provide a concise 3-5 line code review evaluating:
         for task in audit_report.tasks:
             logger.info(f"[COORDINATOR] Executing task {task.task_id}: {task.title}")
 
-            # Optional: If QA subagent generated test code, inject it into the target repo
-            test_created = self._write_red_test_to_main(task)
-            if test_created:
-                logger.info(f"[COORDINATOR] Written Red QA test to '{task.test_file}'")
+            # Optional: If QA subagent generated test code, verify discovery
+            # BEFORE writing to main (F-03): the smoke-check counts discovered
+            # tests with the red test absent vs present, so it must run while
+            # the red test is still hidden from the runner.
+            if task.test_file and task.test_code:
                 if not self._verify_red_test_discovered(task):
                     raise RuntimeError(
                         f"Red test discovery smoke-check FAILED for '{task.test_file}': "
@@ -279,6 +280,9 @@ Provide a concise 3-5 line code review evaluating:
                         f"the red test exists (wrong file naming pattern?). "
                         f"Refusing to continue a TDD phase that would silently skip the red test."
                     )
+            test_created = self._write_red_test_to_main(task)
+            if test_created:
+                logger.info(f"[COORDINATOR] Written Red QA test to '{task.test_file}'")
 
             # Setup DSH Runtime for target repo
             config = PipelineConfig(workspace_root=self.target_repo)
