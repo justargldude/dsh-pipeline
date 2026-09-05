@@ -84,6 +84,77 @@ class AutonomousCoordinator:
             self.dev_provider = create_dev_provider(dev_name, test_mode=test_mode)
         self.deepseek = deepseek  # backwards-compatible alias
 
+    def _write_red_test_to_main(self, task: PlannedTask) -> bool:
+        """Writes the QA red test into the main repo (unchanged legacy path)."""
+        if not (task.test_file and task.test_code):
+            return False
+        test_path = self.target_repo / task.test_file
+        test_path.parent.mkdir(parents=True, exist_ok=True)
+        test_path.write_text(task.test_code, encoding="utf-8")
+        return True
+
+    def _ensure_red_test_in_worktree(self, task: PlannedTask, worktree_path: Path) -> bool:
+        """Copies the QA red test into a transaction worktree.
+
+        Worktrees are created from committed HEAD, so a red test written to the
+        main repo as an untracked file never reaches the Dev worktree and its
+        validation runs an incomplete test set (false green).
+        """
+        if not (task.test_file and task.test_code):
+            return False
+        src = self.target_repo / task.test_file
+        if not src.exists():
+            return False
+        dst = Path(worktree_path) / task.test_file
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+        return True
+
+    def _count_discovered_tests(self, count_cmd: List[str]) -> Optional[int]:
+        """Runs a test-discovery counting command; returns parsed count or None."""
+        try:
+            proc = subprocess.run(
+                count_cmd,
+                cwd=self.target_repo,
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+            if proc.returncode != 0:
+                return None
+            return int(proc.stdout.strip().splitlines()[-1])
+        except Exception:
+            return None
+
+    def _verify_red_test_discovered(
+        self, task: PlannedTask, count_cmd: Optional[List[str]] = None
+    ) -> bool:
+        """Discovery smoke-check: the runner must discover MORE tests after the
+        red test file exists, otherwise the test is invisible (e.g. wrong
+        naming pattern for node --test / pytest discovery) and the whole TDD
+        phase would silently pass without ever running it.
+        """
+        if not (task.test_file and task.test_cmd):
+            return True
+        cmd = count_cmd or shlex.split(task.test_cmd)
+        before = self._count_discovered_tests(cmd)
+        if before is None:
+            return True
+        src = self.target_repo / task.test_file
+        hidden = not src.exists()
+        if hidden:
+            src.parent.mkdir(parents=True, exist_ok=True)
+            src.write_text(task.test_code or "", encoding="utf-8")
+        try:
+            after = self._count_discovered_tests(cmd)
+        finally:
+            if hidden:
+                try:
+                    src.unlink()
+                except OSError:
+                    pass
+        return after is None or after > before
+
     def _review_diff_with_qa(
         self, task: PlannedTask, diff_text: str
     ) -> str:
@@ -132,13 +203,16 @@ Provide a concise 3-5 line code review evaluating:
             logger.info(f"[COORDINATOR] Executing task {task.task_id}: {task.title}")
 
             # Optional: If QA subagent generated test code, inject it into the target repo
-            test_created = False
-            if task.test_file and task.test_code:
-                test_path = self.target_repo / task.test_file
-                test_path.parent.mkdir(parents=True, exist_ok=True)
-                test_path.write_text(task.test_code, encoding="utf-8")
-                test_created = True
+            test_created = self._write_red_test_to_main(task)
+            if test_created:
                 logger.info(f"[COORDINATOR] Written Red QA test to '{task.test_file}'")
+                if not self._verify_red_test_discovered(task):
+                    raise RuntimeError(
+                        f"Red test discovery smoke-check FAILED for '{task.test_file}': "
+                        f"the configured test command does not discover more tests after "
+                        f"the red test exists (wrong file naming pattern?). "
+                        f"Refusing to continue a TDD phase that would silently skip the red test."
+                    )
 
             # Setup DSH Runtime for target repo
             config = PipelineConfig(workspace_root=self.target_repo)
