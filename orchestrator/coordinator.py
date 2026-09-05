@@ -101,17 +101,40 @@ class AutonomousCoordinator:
 
     def _untracked_allowance_for_manifest(self) -> Optional[List[str]]:
         """Untracked paths the manifest dir occupies (F-01)."""
-        if getattr(self, "_run_dir", None) is None:
+        run_dir = getattr(self, "_run_dir", None)
+        if run_dir is None:
             return None
         try:
-            return [str(self._run_dir.relative_to(self.target_repo))]
+            run_dir_path = Path(run_dir).resolve()
+            target_repo_path = self.target_repo.resolve()
+            return [str(run_dir_path.relative_to(target_repo_path))]
         except ValueError:
-            return None
+            # Fallback to absolute path if not relative (e.g., cross-drive on Windows)
+            return [str(Path(run_dir).resolve())]
 
     def _manifest_init(self, run_dir: Path) -> Path:
-        """Creates the run directory and an empty manifest.json."""
+        """Creates the run directory and an empty manifest.json, and adds it to .gitignore."""
         run_dir = Path(run_dir)
+        if not run_dir.is_absolute():
+            run_dir = self.target_repo / run_dir
+        run_dir = run_dir.resolve()
         run_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Auto-append run directory to .gitignore
+        try:
+            rel_run_dir = run_dir.relative_to(self.target_repo.resolve())
+            gitignore_path = self.target_repo / ".gitignore"
+            ignore_entry = f"{rel_run_dir}/\n"
+            if gitignore_path.exists():
+                content = gitignore_path.read_text(encoding="utf-8")
+                if str(rel_run_dir) not in content:
+                    with gitignore_path.open("a", encoding="utf-8") as f:
+                        f.write(f"\n# Auto-generated run directory\n{ignore_entry}")
+            else:
+                gitignore_path.write_text(f"# Auto-generated run directory\n{ignore_entry}", encoding="utf-8")
+        except Exception as e:
+            logger.warning(f"[COORDINATOR] Failed to update .gitignore: {e}")
+
         manifest_path = run_dir / "manifest.json"
         if not manifest_path.exists():
             self._manifest_atomic_write(manifest_path, {"tasks": {}})
