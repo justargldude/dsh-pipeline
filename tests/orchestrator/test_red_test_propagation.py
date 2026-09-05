@@ -77,13 +77,17 @@ class TestRedTestReachesWorktree:
         coord = _coordinator(repo)
         task = _task_with_test("tests/test_red_01.test.js")
 
+        # Red test first written to main repo (as the coordinator does), then
+        # propagated into the worktree by _ensure_red_test_in_worktree.
+        assert coord._write_red_test_to_main(task) is True
+
         wt = tmp_path / ".wt_probe"
         subprocess.run(
             ["git", "worktree", "add", "--detach", str(wt), "HEAD"],
             cwd=repo, check=True, capture_output=True,
         )
 
-        coord._ensure_red_test_in_worktree(task, wt)
+        assert coord._ensure_red_test_in_worktree(task, wt) is True
 
         copied = wt / task.test_file
         assert copied.exists(), (
@@ -114,6 +118,8 @@ class TestDiscoverySmokeCheck:
         assert n == 7
 
     def test_smoke_check_raises_when_count_does_not_grow(self, tmp_path: Path):
+        """When adding the red test does NOT grow the discovered count,
+        _verify_red_test_discovered must report the test as invisible."""
         repo = _git_repo(tmp_path)
         coord = _coordinator(repo)
         task = _task_with_test("tests/test_invisible_01.js")  # NOT *.test.js
@@ -121,15 +127,13 @@ class TestDiscoverySmokeCheck:
         (repo / "tests").mkdir(exist_ok=True)
         (repo / task.test_file).write_text(task.test_code, encoding="utf-8")
 
-        # Runner reports the SAME count before and after the red test exists.
-        before = coord._count_discovered_tests(["bash", "-c", "echo 3"])
-        after = coord._count_discovered_tests(["bash", "-c", "echo 3"])
-        if after <= before:
-            pytest.fail(
-                "Discovery smoke-check did not detect that the new red test is "
-                "invisible to the configured test command "
-                "(tests/test_invisible_01.js vs node --test tests/)."
-            )
+        visible = coord._verify_red_test_discovered(
+            task, count_cmd=["bash", "-c", "echo 3"]
+        )
+        assert visible is False, (
+            "Runner reports the SAME count (3) before and after the red test "
+            "was written; the smoke-check must detect the red test is invisible."
+        )
 
     def test_verify_red_test_discovered_returns_false_for_invisible(self, tmp_path: Path):
         repo = _git_repo(tmp_path)
