@@ -1,3 +1,4 @@
+import fnmatch
 import io
 import logging
 import os
@@ -108,6 +109,87 @@ def terminate_process_tree(proc: subprocess.Popen, timeout_grace: float = 0.5):
         logger.warning(f"Error terminating process tree for pid {pid}: {e}")
 
 
+# Anti-reward-hacking v2.3 Phase E — Sandbox Environment Isolation.
+#
+# FAIL-CLOSED allowlist: a sandboxed build/test subprocess receives ONLY the
+# variables matching these patterns. Parent secrets (API keys, tokens,
+# credentials) never propagate into the sandbox, so Dev-agent code cannot
+# exfiltrate credentials or call external model APIs from inside a
+# transaction worktree. Anything NOT matching the allowlist is dropped.
+SAFE_ENV_ALLOWLIST: Tuple[str, ...] = (
+    # Executables & shell basics
+    "PATH",
+    "HOME",
+    "USER",
+    "SHELL",
+    "TERM",
+    "TMPDIR",
+    "TEMP",
+    "TMP",
+    "LANG",
+    # .NET toolchain
+    "DOTNET_*",
+    "NUGET_*",
+    "MSBuild*",
+    "MSBUILD*",
+    # Python toolchain
+    "PYTHON*",
+    "PIP_*",
+    "VIRTUAL_ENV",
+    "CONDA_PREFIX",
+    # Node toolchain
+    "NODE*",
+    "NPM_*",
+    "YARN_*",
+    # JVM
+    "JAVA_HOME",
+    "JAVA_*",
+    "MAVEN_*",
+    "M2_HOME",
+    # Go
+    "GOPATH",
+    "GOROOT",
+    "GOCACHE",
+    "GOFLAGS",
+    # Rust
+    "CARGO_*",
+    "RUSTUP_HOME",
+    "RUSTFLAGS",
+    # C/C++
+    "CC",
+    "CXX",
+    "CFLAGS",
+    "CXXFLAGS",
+    "LD_LIBRARY_PATH",
+    # Deterministic subprocess behavior
+    "GIT_TERMINAL_PROMPT",
+    "LC_ALL",
+    "TZ",
+)
+
+
+def build_child_env(env: Optional[Dict[str, str]] = None) -> Dict[str, str]:
+    """Builds the sandbox child environment from SAFE_ENV_ALLOWLIST only.
+
+    Semantics:
+    - Start EMPTY (never from os.environ.copy(): that would inherit every
+      parent secret, and Dev-agent code could read or exfiltrate them).
+    - Copy each os.environ variable whose name matches an allowlist pattern.
+    - Apply explicit `env` overrides (orchestrator-injected task vars).
+    - Force GIT_TERMINAL_PROMPT=0 and LC_ALL=C for deterministic behavior.
+    """
+    child: Dict[str, str] = {}
+    for name, value in os.environ.items():
+        if any(fnmatch.fnmatchcase(name, pat) for pat in SAFE_ENV_ALLOWLIST):
+            child[name] = value
+    if env:
+        child.update(env)
+    # Disable interactive prompts in subprocesses + deterministic locale
+    child["GIT_TERMINAL_PROMPT"] = "0"
+    child["LC_ALL"] = "C"
+    return child
+
+
 def run_hardened_command(
     cmd: List[str],
     cwd: Path,
@@ -123,9 +205,7 @@ def run_hardened_command(
     if not cmd:
         return -1, "Empty command.", False, None, False
 
-    merged_env = os.environ.copy()
-    if env:
-        merged_env.update(env)
+    merged_env = build_child_env(env=env)
 
     # Disable interactive prompts in subprocesses
     merged_env["GIT_TERMINAL_PROMPT"] = "0"
