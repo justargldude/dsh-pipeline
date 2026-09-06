@@ -1,0 +1,305 @@
+{
+  "chặng_1_spi_and_validation": {
+    "ast_guard_csharp_coupling": [
+      {
+        "component": "CSharpSymbol",
+        "type": "dataclass",
+        "file": "safety/ast_guard.py",
+        "line_start": 14,
+        "line_end": 109,
+        "quote_code": "@dataclass\nclass CSharpSymbol:\n    kind: str  # \"method\", \"constructor\", \"property\", \"class\", \"struct\", \"interface\", \"record\", \"enum\"\n    name: str\n    enclosing_type: str\n    namespace: str",
+        "description": "Dataclass biểu diễn symbol gắn cứng với cú pháp và cấu trúc ngữ nghĩa của C# (kind hỗ trợ method, constructor, property, class, struct, interface, record, enum; hàm matches_target xử lý cú pháp generic <T> và tham số signature C#; các cờ has_not_implemented, first_stmt_type, first_stmt_text)."
+      },
+      {
+        "component": "TAUTOLOGICAL_ASSERT_PATTERNS",
+        "type": "class_attribute",
+        "file": "safety/ast_guard.py",
+        "line_start": 112,
+        "line_end": 119,
+        "quote_code": "    TAUTOLOGICAL_ASSERT_PATTERNS = {\n        \"true\",\n        \"true==true\",\n        \"1==1\",\n        \"0==0\",\n        \"null==null\",\n        \"\"\"!=null\",\n    }",
+        "description": "Tập hợp các chuỗi literal tautological assert gắn cứng cho C# (ví dụ 'null==null', '\"\"!=null', 'true')."
+      },
+      {
+        "component": "ASTGuard.__init__",
+        "type": "method",
+        "file": "safety/ast_guard.py",
+        "line_start": 121,
+        "line_end": 124,
+        "quote_code": "    def __init__(self):\n        # Shared cached Language instance (Opt 8.3); Parser stays per-instance (lightweight).\n        self.language = get_csharp_language()\n        self.parser = Parser(self.language)",
+        "description": "Khởi tạo gắn cứng Parser tree-sitter với ngôn ngữ C# thông qua get_csharp_language(), khiến instance ASTGuard phụ thuộc cố định vào grammar C#."
+      },
+      {
+        "component": "ASTGuard._get_enclosing_type",
+        "type": "method",
+        "file": "safety/ast_guard.py",
+        "line_start": 126,
+        "line_end": 143,
+        "quote_code": "    def _get_enclosing_type(self, node: Node, code_bytes: bytes) -> Tuple[str, str]:\n        \"\"\"Returns (enclosing_type, namespace) for a given AST node.\"\"\"\n        types = []\n        namespaces = []\n        curr = node.parent",
+        "description": "Trích xuất enclosing type và namespace dựa trên các AST node type đặc thù của Tree-sitter C# ('class_declaration', 'struct_declaration', 'interface_declaration', 'record_declaration', 'namespace_declaration', 'file_scoped_namespace_declaration')."
+      },
+      {
+        "component": "ASTGuard._extract_symbols",
+        "type": "method",
+        "file": "safety/ast_guard.py",
+        "line_start": 145,
+        "line_end": 264,
+        "quote_code": "    def _extract_symbols(self, root: Node, code_bytes: bytes) -> List[CSharpSymbol]:\n        \"\"\"Extracts all declared symbols with detailed signatures from C# AST.\"\"\"\n        symbols: List[CSharpSymbol] = []\n        stack = [root]",
+        "description": "Trích xuất danh sách CSharpSymbol phụ thuộc hoàn toàn vào AST node types của C# ('method_declaration', 'constructor_declaration', 'property_declaration', 'parameter_list', 'arrow_expression_clause', 'predefined_type') và kiểm tra chuỗi 'notimplementedexception'."
+      },
+      {
+        "component": "ASTGuard._extract_assert_predicates",
+        "type": "method",
+        "file": "safety/ast_guard.py",
+        "line_start": 266,
+        "line_end": 301,
+        "quote_code": "    def _extract_assert_predicates(self, root: Node, code_bytes: bytes) -> List[Tuple[str, str, bool]]:\n        \"\"\"Extracts assertion invocations, returning list of (call_text, predicate_text, is_tautology).\"\"\"\n        asserts = []\n        stack = [root]",
+        "description": "Trích xuất các lời gọi assert từ AST C# qua các node 'invocation_expression', 'argument_list', 'argument' và đối chiếu với TAUTOLOGICAL_ASSERT_PATTERNS."
+      },
+      {
+        "component": "ASTGuard._check_early_return_and_stubs",
+        "type": "method",
+        "file": "safety/ast_guard.py",
+        "line_start": 303,
+        "line_end": 338,
+        "quote_code": "    def _check_early_return_and_stubs(\n        self,\n        old_symbols: List[CSharpSymbol],\n        new_symbols: List[CSharpSymbol],\n        file_path: str,\n    ):",
+        "description": "Kiểm tra dummy stub và early return bypass gắn cứng C# (NotImplementedException, return_statement, các chuỗi return stub C# như 'returnnull', 'returnfalse', 'returndefault')."
+      },
+      {
+        "component": "ASTGuard.validate_csharp_transition",
+        "type": "method",
+        "file": "safety/ast_guard.py",
+        "line_start": 339,
+        "line_end": 455,
+        "quote_code": "    def validate_csharp_transition(\n        self,\n        old_code: str,\n        new_code: str,\n        file_path: str = \"\",\n        target_symbols: Optional[List[str]] = None,\n    ):",
+        "description": "Toàn bộ pipeline kiểm tra biến đổi AST dành riêng cho C# (kiểm tra cú pháp C#, cấm xóa type/class C#, cấm xóa method C#, kiểm tra target_symbols, kiểm tra suy yếu assertion và bypass stubs)."
+      }
+    ],
+    "non_existent_files": {
+      "safety/languages/csharp.py": "CHƯA TỒN TẠI",
+      "safety/languages/base.py": "CHƯA TỒN TẠI",
+      "validation/mutation.py": "CHƯA TỒN TẠI"
+    },
+    "validation_pipeline_current_state": {
+      "file": "validation/pipeline.py",
+      "validation_tiers": {
+        "line_start": 17,
+        "line_end": 22,
+        "values": [
+          "T0_STRUCTURAL",
+          "T1_BUILD",
+          "T2_BEHAVIORAL",
+          "T3_REGRESSION",
+          "T4_RISK"
+        ],
+        "quote_code": "class ValidationTier(str, Enum):\n    T0_STRUCTURAL = \"T0_STRUCTURAL\"\n    T1_BUILD = \"T1_BUILD\"\n    T2_BEHAVIORAL = \"T2_BEHAVIORAL\"\n    T3_REGRESSION = \"T3_REGRESSION\"\n    T4_RISK = \"T4_RISK\"",
+        "description": "Chỉ có 5 tier tiêu chuẩn, hoàn toàn CHƯA CÓ tier cho Mutation Testing (T2_5_MUTATION) hoặc Holdout Validation."
+      },
+      "validate_post_apply_steps": [
+        {
+          "step_name": "T1_BUILD",
+          "line_start": 85,
+          "line_end": 116,
+          "quote_code": "        # 3. T1 - Build\n        post_build: BuildResult = build_runner.build(repo_path)",
+          "description": "Thực thi build_runner.build(repo_path) và so sánh baseline.build_result."
+        },
+        {
+          "step_name": "T2_BEHAVIORAL",
+          "line_start": 118,
+          "line_end": 146,
+          "quote_code": "        # 4. T2 - Behavioral (if validator configured)\n        if self.behavioral_validator is not None:\n            beh_res = self.behavioral_validator.validate_behavior(repo_path, task.task_id)",
+          "description": "Thực thi behavioral_validator.validate_behavior(repo_path, task.task_id) và so sánh baseline.behavioral_result để phát hiện new_failures."
+        },
+        {
+          "step_name": "T3_REGRESSION",
+          "line_start": 147,
+          "line_end": 173,
+          "quote_code": "        # 5. T3 - Regression (if validator configured)\n        if self.regression_validator is not None:\n            post_reg = self.regression_validator.validate_regression(repo_path)",
+          "description": "Thực thi regression_validator.validate_regression(repo_path) và so sánh baseline.regression_result."
+        }
+      ],
+      "exact_boundary_between_t2_and_t3": {
+        "t2_end_line": 146,
+        "t3_start_line": 147,
+        "intermediate_lines": 0,
+        "quote_code": "                details={\"failures\": beh_res.failures},\n            )\n\n        # 5. T3 - Regression (if validator configured)\n        if self.regression_validator is not None:",
+        "description": "T2_BEHAVIORAL kết thúc ở dòng 146 và T3_REGRESSION bắt đầu ngay tại dòng 147 (comment) và dòng 148 (if statement). Hoàn toàn không có bước trung gian nào (không có Mutation Gate và không có Holdout Injection)."
+      }
+    }
+  },
+  "chặng_2_phase_a_isolation_and_holdout": {
+    "task_schema_status": {
+      "file": "task/schema.py",
+      "line_start": 12,
+      "line_end": 28,
+      "fields": [
+        "task_id",
+        "title",
+        "dependencies",
+        "allowed_files",
+        "max_lines_added",
+        "max_lines_deleted",
+        "target_symbols",
+        "risk"
+      ],
+      "has_holdout_test_code": false,
+      "quote_code": "class TaskDefinition(BaseModel):\n    task_id: str = Field(..., min_length=1)\n    title: str = Field(..., min_length=1)\n    dependencies: List[str] = Field(default_factory=list)\n    allowed_files: List[str] = Field(default_factory=list)\n    max_lines_added: int = Field(default=50, ge=0, le=50000)\n    max_lines_deleted: int = Field(default=20, ge=0, le=50000)\n    target_symbols: List[str] = Field(default_factory=list)\n    risk: RiskLevel = RiskLevel.MEDIUM",
+      "description": "Trường holdout_test_code CHƯA TỒN TẠI trong TaskDefinition (cũng chưa có holdout_test_file hay visible_test_code)."
+    },
+    "planner_status": {
+      "file": "orchestrator/planner.py",
+      "plan_function_name": "audit_and_plan",
+      "note_on_function_name": "Không có hàm tên là plan(), hàm sinh task thực tế là audit_and_plan().",
+      "planned_task_schema": {
+        "line_start": 15,
+        "line_end": 28,
+        "fields": [
+          "task_id",
+          "title",
+          "description",
+          "allowed_files",
+          "target_symbols",
+          "test_file",
+          "test_code",
+          "test_cmd",
+          "build_cmd",
+          "max_lines_added",
+          "max_lines_deleted",
+          "risk"
+        ],
+        "quote_code": "class PlannedTask(BaseModel):\n    task_id: str\n    title: str\n    description: str = \"\"\n    allowed_files: List[str] = Field(default_factory=list)\n    target_symbols: List[str] = Field(default_factory=list)\n    test_file: Optional[str] = None\n    test_code: Optional[str] = None\n    test_cmd: Optional[str] = None\n    build_cmd: Optional[str] = None\n    max_lines_added: int = 300\n    max_lines_deleted: int = 150\n    risk: str = \"medium\""
+      },
+      "audit_and_plan_prompt": {
+        "line_start": 139,
+        "line_end": 187,
+        "test_requirement_lines": "161-163",
+        "test_requirement_quote": "   - test_file: path to a test file that verifies the fix/feature (e.g. \"tests/test_fix1.js\" or \"tests/test_fix1.py\")\n   - test_code: full runnable test code that initially FAILS on current code and PASSES after the fix.\n   - test_cmd: exact shell command to run this test (e.g. \"{profile['default_test_cmd'] or 'npm test'}\")",
+        "description": "Prompt QA planner chỉ yêu cầu test đơn giản ban đầu fail sau đó pass (TDD cơ bản), hoàn toàn không phân tách holdout test và không yêu cầu PBT Generative Loop."
+      }
+    },
+    "scope_guard_policy_status": {
+      "file_policy": "safety/policy.py",
+      "file_scope_guard": "safety/scope_guard.py",
+      "policy_forbidden_patterns": {
+        "line_start": 20,
+        "line_end": 34,
+        "patterns": [
+          ".git",
+          ".git/*",
+          ".env",
+          "id_rsa",
+          "id_ed25519",
+          "*.pem",
+          "*.key",
+          "*.pfx",
+          "*.kdbx",
+          "passwd",
+          "shadow"
+        ],
+        "quote_code": "    forbidden_file_patterns: List[str] = Field(\n        default_factory=lambda: [\n            \".git\",\n            \".git/*\",\n            \".env\",\n            \"id_rsa\",\n            \"id_ed25519\",\n            \"*.pem\",\n            \"*.key\",\n            \"*.pfx\",\n            \"*.kdbx\",\n            \"passwd\",\n            \"shadow\",\n        ]\n    )"
+      },
+      "scope_guard_allowed_files_check": {
+        "line_start": 85,
+        "line_end": 99,
+        "quote_code": "            # 3. Forbidden files pattern check (checks full relative path, components, and target name)\n            for pattern in self.policy.forbidden_file_patterns:\n                if (\n                    fnmatch.fnmatch(rel_file, pattern)\n                    or fnmatch.fnmatch(target_path.name, pattern)\n                    or any(fnmatch.fnmatch(p, pattern) for p in rel_file.split(\"/\"))\n                ):\n                    raise ScopeViolationError(\n                        f\"Forbidden file access detected: '{rel_file}' matches restricted pattern '{pattern}'\"\n                    )\n\n            # 4. Allowed files check\n            if rel_file not in normalized_allowed:\n                raise ScopeViolationError(\n                    f\"File '{rel_file}' is not in allowed_files: {task.allowed_files}\"\n                )"
+      },
+      "prohibits_dev_from_writing_tests": false,
+      "description": "CHƯA CẤM Dev ghi file *Test.cs hay các file test. forbidden_file_patterns chỉ cấm các file nhạy cảm và VCS. Nếu planner đưa file test vào allowed_files, Dev hoàn toàn có quyền ghi đè hoặc sửa đổi file test để vượt qua validation."
+    },
+    "context_builder_status": {
+      "file": "context/builder.py",
+      "build_prompt_function": "CHƯA TỒN TẠI dưới tên build_prompt; hàm thực tế là build_context_with_manifest (dòng 30-185) và wrapper build_context (dòng 187-205).",
+      "format_file_snippets_function": "CHƯA TỒN TẠI dưới tên _format_file_snippets; logic định dạng snippet được thực hiện trực tiếp tại dòng 73-89 của build_context_with_manifest.",
+      "file_snippets_injection": {
+        "line_start": 73,
+        "line_end": 89,
+        "quote_code": "        for fname, snippet in file_snippets.items():\n            ext_res: ExtractedSourceResult = self.symbol_extractor.extract_relevant_source(\n                source_code=snippet,\n                target_symbols=task.target_symbols if task.target_symbols else None,\n                max_tokens=reserved_source_budget,\n                file_name=fname,\n            )\n            if ext_res.is_truncated:\n                target_source_truncated = True\n            extraction_method = ext_res.extraction_method\n\n            source_item = ContextItem(\n                priority=PriorityLevel.TARGET_SOURCE,\n                category=f\"TARGET_SOURCE:{fname}\",\n                content=f\"### [SOURCE FILE: {fname}]\\n```csharp\\n{ext_res.extracted_code}\\n```\\n\",\n            )\n            mandatory_items.append(source_item)"
+      },
+      "error_logs_injection": {
+        "line_start": 119,
+        "line_end": 127,
+        "quote_code": "        # 5. OPTIONAL: Failure History\n        if previous_failure:\n            optional_items.append(\n                ContextItem(\n                    priority=PriorityLevel.FAILURE_HISTORY,\n                    category=\"FAILURE_HISTORY\",\n                    content=f\"### [PREVIOUS FAILURE HISTORY]\\n{previous_failure}\\n\",\n                )\n            )"
+      },
+      "test_code_injection": "CHƯA CÓ logic chèn riêng cho test_code hay holdout_test_code; nếu file test nằm trong file_snippets thì nó bị nạp thẳng vào TARGET_SOURCE làm rò rỉ mã test cho Dev."
+    },
+    "runtime_pipeline_hook_status": {
+      "file": "core/runtime.py",
+      "execute_task_function": "CHƯA TỒN TẠI dưới tên execute_task; các hàm thực thi tương đương là execute_transaction (dòng 324-650), execute_with_model (dòng 256-322), và execute_with_recovery (dòng 238-254).",
+      "validate_post_apply_call": {
+        "line_start": 450,
+        "line_end": 455,
+        "parent_function": "execute_transaction",
+        "quote_code": "            post_report = self.validation_pipeline.validate_post_apply(\n                task=task,\n                repo_path=tx_worktree.worktree_path,\n                build_runner=self.build_runner,\n                baseline=baseline,\n            )",
+        "description": "validate_post_apply được gọi ở bước 5 của transaction bên trong execute_transaction, chạy sau khi áp dụng patch và kiểm tra đồng bộ đĩa."
+      }
+    }
+  },
+  "chặng_2_phase_b_purity_and_assert": {
+    "tautology_check_current": {
+      "file": "safety/ast_guard.py",
+      "function": "_extract_assert_predicates",
+      "line_start": 266,
+      "line_end": 301,
+      "quote_code": "                        # Extract argument list\n                        predicate_text = \"\"\n                        for child in curr.children:\n                            if child.type == \"argument_list\":\n                                args = [\n                                    code_bytes[arg.start_byte:arg.end_byte].decode(\"utf-8\", errors=\"replace\").strip()\n                                    for arg in child.children\n                                    if arg.type == \"argument\"\n                                ]\n                                if args:\n                                    predicate_text = args[0]\n                                break\n\n                        cleaned_pred = predicate_text.replace(\" \", \"\").lower()\n                        is_tautology = cleaned_pred in self.TAUTOLOGICAL_ASSERT_PATTERNS\n                        asserts.append((call_text, predicate_text, is_tautology))",
+      "mechanism": {
+        "parameter_handling": "Chỉ lấy duy nhất 1 tham số (args[0]), hoàn toàn không hỗ trợ các phương thức assertion 2 tham số như Assert.Equal(a, b), Assert.AreEqual(expected, actual).",
+        "checks_norm_equality": false,
+        "description": "Chưa kiểm tra norm(a) == norm(b). Chỉ đối chiếu chuỗi tham số đầu tiên sau khi bỏ khoảng trắng với tập hợp cố định TAUTOLOGICAL_ASSERT_PATTERNS (true, true==true, 1==1, 0==0, null==null, \"\"!=null)."
+      }
+    },
+    "purity_check_current": {
+      "file": "safety/ast_guard.py",
+      "has_io_purity_check": false,
+      "has_static_mutable_check": false,
+      "description": "Trong safety/ast_guard.py (toàn bộ 455 dòng) HOÀN TOÀN CHƯA CÓ kiểm tra purity I/O (chặn System.IO, File, Network, Process, Console, reflection) và HOÀN TOÀN CHƯA CÓ kiểm tra static mutable state (chặn trường static lưu cache gian lận giữa các test run)."
+    }
+  },
+  "chặng_2_phase_c_prompts": {
+    "dev_system_prompt_status": {
+      "file": "core/runtime.py",
+      "attribute": "DSHRuntime.SYSTEM_PROMPT",
+      "line_start": 49,
+      "line_end": 72,
+      "quote_code": "    SYSTEM_PROMPT = \"\"\"You are a deterministic code patch engine.\nYour sole job is to produce a valid JSON object matching the PatchProposal schema.\nDo NOT wrap your output in explanations. Output ONLY valid JSON with this structure:\n{\n  \"patches\": [\n    {\n      \"file\": \"src/Player.cs\",\n      \"hunks\": [\n        {\n          \"old_text\": \"...\",\n          \"new_text\": \"...\"\n        }\n      ]\n    }\n  ],\n  \"reason\": \"...\",\n  \"confidence\": 0.95\n}\n\nCRITICAL REASONING DIRECTIVE:\n- Historical markdown files, notes, or diagnostic logs are past observations at specific timestamps - NOT immutable business rules.\n- Never assume an endpoint or external service is broken from old reports; always verify liveness with real-time execution before concluding.\n- If an explanation claims a wait or a block, treat it as an unverified hypothesis and test it from first principles.\n\"\"\"",
+      "has_pact_guard": false,
+      "has_precondition_guard": false,
+      "description": "Chỉ chứa hướng dẫn định dạng JSON và CRITICAL REASONING DIRECTIVE về file markdown lịch sử. Hoàn toàn CHƯA CÓ PACT (Preconditions, Actions, Postconditions, Invariants) và CHƯA CÓ Precondition guard để ngăn chặn Dev hardcode giá trị trả về theo input test."
+    },
+    "qa_planner_prompt_status": {
+      "file": "orchestrator/planner.py",
+      "function": "AutonomousPlanner.audit_and_plan",
+      "line_start": 139,
+      "line_end": 187,
+      "quote_code": "   - test_file: path to a test file that verifies the fix/feature (e.g. \"tests/test_fix1.js\" or \"tests/test_fix1.py\")\n   - test_code: full runnable test code that initially FAILS on current code and PASSES after the fix.\n   - test_cmd: exact shell command to run this test (e.g. \"{profile['default_test_cmd'] or 'npm test'}\")",
+      "has_pbt_native_generative_loop": false,
+      "description": "CHƯA CÓ yêu cầu PBT (Property-Based Testing) Native Generative Loop 100 iter. Prompt chỉ yêu cầu sinh test cơ bản fail trước pass sau."
+    }
+  },
+  "chặng_2_phase_d_review": {
+    "review_task_status": {
+      "file": "orchestrator/coordinator.py",
+      "function_name": "_review_diff_with_qa",
+      "note_on_function_name": "Không có hàm tên là _review_task(), hàm review thực tế là _review_diff_with_qa (dòng 235-282), có alias _review_diff_with_antigravity (dòng 283-286).",
+      "line_start": 235,
+      "line_end": 282,
+      "quote_code": "    def _review_diff_with_qa(\n        self, task: \"PlannedTask\", diff_text: str\n    ) -> Dict[str, Any]:\n        ...\n        response = self.qa_client.query(prompt)",
+      "model_called": "self.qa_client (instance SubagentClient của QA được truyền vào coordinator, ví dụ Antigravity / Claude / Codex).",
+      "has_separate_security_prover": false,
+      "security_prover_details": "Coordinator có cơ chế kiểm tra cross-family giữa QA và Dev ở hàm __init__ (dòng 91-101) để tránh cùng họ model. Tuy nhiên, việc review diff được giao trực tiếp cho QA subagent chứ KHÔNG CÓ một model Security Prover chuyên trách độc lập thứ 3.",
+      "has_metamorphic_check": false,
+      "description": "HOÀN TOÀN CHƯA CÓ kiểm tra metamorphic check (không có cơ chế biến đổi input để kiểm tra tính bất biến hoặc phát hiện gian lận bằng các trường hợp biên ngẫu nhiên)."
+    }
+  },
+  "chặng_2_phase_e_sandbox": {
+    "sandbox_environ_usages": [
+      {
+        "file": "build/sandbox.py",
+        "function": "run_hardened_command",
+        "line_start": 126,
+        "line_end": 133,
+        "quote_code": "    merged_env = os.environ.copy()\n    if env:\n        merged_env.update(env)\n\n    # Disable interactive prompts in subprocesses\n    merged_env[\"GIT_TERMINAL_PROMPT\"] = \"0\"\n    merged_env[\"LC_ALL\"] = \"C\"",
+        "usage_type": "os.environ.copy()",
+        "description": "Sao chép toàn bộ biến môi trường của host OS vào process chạy lệnh build/test. Chưa có cơ chế whitelist lọc bỏ các biến môi trường nhạy cảm (như API tokens, secrets, credentials). Đây là vị trí duy nhất trong build/sandbox.py sử dụng os.environ."
+      }
+    ]
+  }
+}

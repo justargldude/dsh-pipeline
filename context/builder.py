@@ -1,4 +1,5 @@
 import json
+import re
 from typing import Any, Dict, List, Optional, Tuple
 from pydantic import BaseModel, Field
 
@@ -8,6 +9,81 @@ from context.budget import ContextComplexity, TokenBudgetManager, ContextBudgetE
 from context.ranking import ContextItem, ContextRanker, PriorityLevel
 from context.extractor import SymbolExtractor, ExtractedSourceResult
 from memory.episodic import EpisodeRecord, EpisodeStatus
+
+
+# Anti-reward-hacking v2.3 Checkpoint 5: test-file content that must never
+# reach the Dev agent's context. Holdout tests are the hidden exam; leaking
+# them (directly via file snippets, or indirectly via failure logs quoting
+# them) lets the Dev agent hardcode against the hidden assertions.
+HOLDOUT_FILE_PATTERNS = [
+    "*holdout*",
+    "*Holdout*",
+]
+
+# Neutral placeholder substituting every redacted holdout reference.
+_HOLDOUT_REDACTED_PLACEHOLDER = "[REDACTED: hidden holdout test content]"
+
+# Standard marker the QA planner MUST embed at the top of every holdout test
+# (see orchestrator/planner.py). Any content carrying this marker is holdout
+# material and must be scrubbed from Dev context regardless of which line or
+# section it appears in.
+HOLDOUT_MARKER = "DSH_HOLDOUT"
+
+
+def is_holdout_test_file(file_path: str) -> bool:
+    """True if the path looks like a holdout test file (name-based, pure)."""
+    import fnmatch as _fnmatch
+    lowered = str(file_path).lower()
+    components = lowered.split("/")
+    basename = components[-1] if components else lowered
+    for pattern in HOLDOUT_FILE_PATTERNS:
+        p = pattern.lower()
+        if _fnmatch.fnmatch(lowered, p) or _fnmatch.fnmatch(basename, p):
+            return True
+    return False
+
+
+def _mentions_holdout(text: str) -> bool:
+    """True if the text references holdout material at all (file names or
+    the standard DSH_HOLDOUT marker)."""
+    if not text:
+        return False
+    if re.search(r"(?i)\bholdout[_-]?tests?\b|\btest[_-]?holdout\b|DSH_HOLDOUT", text):
+        return True
+    return is_holdout_test_file(text)
+
+
+def redact_holdout_references(text: str) -> str:
+    """Scrubs holdout test content from arbitrary text (failure logs, diffs,
+    error quotes) so indirect leakage paths are closed too.
+
+    Two independent mechanisms:
+    1. Line-level: whole lines naming a holdout test file are replaced.
+    2. Marker-level: the standard DSH_HOLDOUT marker (which the QA planner
+       requires in every holdout test) is scrubbed together with the rest of
+       its line, and any residual marker token is neutralized — closing the
+       path where holdout *content* leaks without naming the file.
+    """
+    if not text:
+        return text
+    holdout_line_pat = re.compile(
+        r"^.*(?:holdouttests?|holdout[_-]?test\w*|test[_-]?holdout\w*|DSH_HOLDOUT\w*).*$",
+        re.IGNORECASE,
+    )
+    lines = text.splitlines(keepends=True)
+    scrubbed = []
+    for ln in lines:
+        core = ln.rstrip("\r\n")
+        if holdout_line_pat.match(core.strip()):
+            eol = ln[len(core):]
+            scrubbed.append(_HOLDOUT_REDACTED_PLACEHOLDER + eol)
+        else:
+            scrubbed.append(ln)
+    out = "".join(scrubbed)
+    # Blanket markers (catches inline mentions the line filter missed).
+    out = re.sub(r"(?i)holdout[_-]?tests?[_-]?\w*", _HOLDOUT_REDACTED_PLACEHOLDER, out)
+    out = re.sub(r"(?i)DSH_HOLDOUT\w*", _HOLDOUT_REDACTED_PLACEHOLDER, out)
+    return out
 
 
 class ContextManifest(BaseModel):
@@ -42,6 +118,31 @@ class ContextBuilder:
         """
         total_budget = TokenBudgetManager.get_budget(complexity)
         available_budget = TokenBudgetManager.compute_available_budget(complexity)
+
+        # Anti-reward-hacking v2.3 Checkpoint 5 — holdout context isolation:
+        # holdout test content must NEVER reach the Dev agent, neither
+        # directly (file snippets) nor indirectly (failure logs quoting it).
+        file_snippets = {
+            fname: snippet
+            for fname, snippet in file_snippets.items()
+            if not is_holdout_test_file(fname)
+        }
+        holdout_detected_in_failure = False
+        if previous_failure:
+            if _mentions_holdout(previous_failure):
+                # FAIL-CLOSED: a failure history that references holdout
+                # material (file names or the DSH_HOLDOUT marker) cannot be
+                # reliably scrubbed line-by-line — arbitrary quoted content
+                # may not carry any marker at all. Replace the WHOLE history
+                # with a neutral placeholder: losing advisory history is
+                # acceptable, leaking the hidden exam is not.
+                holdout_detected_in_failure = True
+                previous_failure = (
+                    "[REDACTED: previous failure history referenced hidden "
+                    "holdout test material and was withheld from Dev context]"
+                )
+            else:
+                previous_failure = redact_holdout_references(previous_failure)
 
         mandatory_items: List[ContextItem] = []
         optional_items: List[ContextItem] = []
@@ -108,11 +209,23 @@ class ContextBuilder:
 
         # 4. IMPORTANT: Recon Evidence / Facts
         if evidence:
+            # v2.3 Checkpoint 5: evidence values may quote holdout test
+            # content (e.g. test failure output embedded as a "fact") —
+            # redact every string before it enters the Dev context.
+            def _redact_evidence(obj):
+                if isinstance(obj, str):
+                    return redact_holdout_references(obj)
+                if isinstance(obj, dict):
+                    return {k: _redact_evidence(v) for k, v in obj.items()}
+                if isinstance(obj, list):
+                    return [_redact_evidence(v) for v in obj]
+                return obj
+
             optional_items.append(
                 ContextItem(
                     priority=PriorityLevel.RELEVANT_EVIDENCE,
                     category="RECON_EVIDENCE",
-                    content=f"### [RECON EVIDENCE (FACTS)]\n```json\n{json.dumps(evidence, indent=2)}\n```\n",
+                    content=f"### [RECON EVIDENCE (FACTS)]\n```json\n{json.dumps(_redact_evidence(evidence), indent=2)}\n```\n",
                 )
             )
 

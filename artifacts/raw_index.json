@@ -1,0 +1,2680 @@
+{
+  "build/__init__.py": {
+    "lines": 0,
+    "symbols": []
+  },
+  "build/sandbox.py": {
+    "lines": 285,
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "BuildErrorDetail",
+        "parent": null,
+        "line": 17,
+        "sig": "class BuildErrorDetail(BaseModel):"
+      },
+      {
+        "kind": "class",
+        "name": "BuildResult",
+        "parent": null,
+        "line": 25,
+        "sig": "class BuildResult(BaseModel):"
+      },
+      {
+        "kind": "func",
+        "name": "terminate_process_tree",
+        "parent": null,
+        "line": 35,
+        "sig": "def terminate_process_tree(proc: subprocess.Popen, timeout_grace: float = 0.5):"
+      },
+      {
+        "kind": "func",
+        "name": "run_hardened_command",
+        "parent": null,
+        "line": 111,
+        "sig": "def run_hardened_command("
+      },
+      {
+        "kind": "class",
+        "name": "BaseBuildRunner",
+        "parent": null,
+        "line": 183,
+        "sig": "class BaseBuildRunner(ABC):"
+      },
+      {
+        "kind": "func",
+        "name": "build",
+        "parent": "BaseBuildRunner",
+        "line": 185,
+        "sig": "def build(self, repo_path: Path) -> BuildResult:"
+      },
+      {
+        "kind": "class",
+        "name": "MockBuildRunner",
+        "parent": null,
+        "line": 189,
+        "sig": "class MockBuildRunner(BaseBuildRunner):"
+      },
+      {
+        "kind": "func",
+        "name": "__init__",
+        "parent": "MockBuildRunner",
+        "line": 190,
+        "sig": "def __init__("
+      },
+      {
+        "kind": "func",
+        "name": "build",
+        "parent": "MockBuildRunner",
+        "line": 204,
+        "sig": "def build(self, repo_path: Path) -> BuildResult:"
+      },
+      {
+        "kind": "class",
+        "name": "SubprocessBuildRunner",
+        "parent": null,
+        "line": 220,
+        "sig": "class SubprocessBuildRunner(BaseBuildRunner):"
+      },
+      {
+        "kind": "func",
+        "name": "__init__",
+        "parent": "SubprocessBuildRunner",
+        "line": 221,
+        "sig": "def __init__("
+      },
+      {
+        "kind": "func",
+        "name": "build",
+        "parent": "SubprocessBuildRunner",
+        "line": 231,
+        "sig": "def build(self, repo_path: Path) -> BuildResult:"
+      }
+    ]
+  },
+  "cli.py": {
+    "lines": 531,
+    "symbols": [
+      {
+        "kind": "func",
+        "name": "_load_json",
+        "parent": null,
+        "line": 24,
+        "sig": "def _load_json(path: Path, model):"
+      },
+      {
+        "kind": "func",
+        "name": "_load_env_file",
+        "parent": null,
+        "line": 57,
+        "sig": "def _load_env_file(env_file: Optional[Path]) -> None:"
+      },
+      {
+        "kind": "func",
+        "name": "_prepare_model_runtime",
+        "parent": null,
+        "line": 75,
+        "sig": "def _prepare_model_runtime(repo_path: Path, dry_run: bool, env_file: Optional[Path]):"
+      },
+      {
+        "kind": "func",
+        "name": "_collect_file_snippets",
+        "parent": null,
+        "line": 108,
+        "sig": "def _collect_file_snippets(runtime: DSHRuntime, task: TaskDefinition) -> Dict[str, str]:"
+      },
+      {
+        "kind": "func",
+        "name": "_print_transaction_result",
+        "parent": null,
+        "line": 127,
+        "sig": "def _print_transaction_result(result) -> None:"
+      },
+      {
+        "kind": "func",
+        "name": "run",
+        "parent": null,
+        "line": 146,
+        "sig": "def run("
+      },
+      {
+        "kind": "func",
+        "name": "demo",
+        "parent": null,
+        "line": 201,
+        "sig": "def demo("
+      },
+      {
+        "kind": "func",
+        "name": "model",
+        "parent": null,
+        "line": 251,
+        "sig": "def model("
+      },
+      {
+        "kind": "func",
+        "name": "recover",
+        "parent": null,
+        "line": 276,
+        "sig": "def recover("
+      },
+      {
+        "kind": "func",
+        "name": "dag",
+        "parent": null,
+        "line": 301,
+        "sig": "def dag("
+      },
+      {
+        "kind": "func",
+        "name": "prompt",
+        "parent": null,
+        "line": 375,
+        "sig": "def prompt("
+      },
+      {
+        "kind": "func",
+        "name": "orchestrate",
+        "parent": null,
+        "line": 450,
+        "sig": "def orchestrate("
+      }
+    ]
+  },
+  "context/__init__.py": {
+    "lines": 0,
+    "symbols": []
+  },
+  "context/budget.py": {
+    "lines": 62,
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "ContextComplexity",
+        "parent": null,
+        "line": 7,
+        "sig": "class ContextComplexity(str, Enum):"
+      },
+      {
+        "kind": "class",
+        "name": "ContextBudgetExceededError",
+        "parent": null,
+        "line": 15,
+        "sig": "class ContextBudgetExceededError(Exception):"
+      },
+      {
+        "kind": "class",
+        "name": "TokenBudgetManager",
+        "parent": null,
+        "line": 20,
+        "sig": "class TokenBudgetManager:"
+      },
+      {
+        "kind": "func",
+        "name": "get_budget",
+        "parent": "TokenBudgetManager",
+        "line": 36,
+        "sig": "def get_budget(cls, complexity: ContextComplexity = ContextComplexity.NORMAL) -> int:"
+      },
+      {
+        "kind": "func",
+        "name": "compute_available_budget",
+        "parent": "TokenBudgetManager",
+        "line": 42,
+        "sig": "def compute_available_budget(cls, complexity: ContextComplexity = ContextComplexity.NORMAL) -> int:"
+      },
+      {
+        "kind": "func",
+        "name": "estimate_tokens",
+        "parent": "TokenBudgetManager",
+        "line": 58,
+        "sig": "def estimate_tokens(text: str) -> int:"
+      }
+    ]
+  },
+  "context/builder.py": {
+    "lines": 205,
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "ContextManifest",
+        "parent": null,
+        "line": 13,
+        "sig": "class ContextManifest(BaseModel):"
+      },
+      {
+        "kind": "class",
+        "name": "ContextBuilder",
+        "parent": null,
+        "line": 24,
+        "sig": "class ContextBuilder:"
+      },
+      {
+        "kind": "func",
+        "name": "__init__",
+        "parent": "ContextBuilder",
+        "line": 25,
+        "sig": "def __init__(self, evidence_service: Optional[EvidenceService] = None):"
+      },
+      {
+        "kind": "func",
+        "name": "build_context_with_manifest",
+        "parent": "ContextBuilder",
+        "line": 30,
+        "sig": "def build_context_with_manifest("
+      },
+      {
+        "kind": "func",
+        "name": "build_context",
+        "parent": "ContextBuilder",
+        "line": 187,
+        "sig": "def build_context("
+      }
+    ]
+  },
+  "context/extractor.py": {
+    "lines": 205,
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "ExtractedSourceResult",
+        "parent": null,
+        "line": 8,
+        "sig": "class ExtractedSourceResult:"
+      },
+      {
+        "kind": "func",
+        "name": "__init__",
+        "parent": "ExtractedSourceResult",
+        "line": 9,
+        "sig": "def __init__("
+      },
+      {
+        "kind": "class",
+        "name": "SymbolExtractor",
+        "parent": null,
+        "line": 22,
+        "sig": "class SymbolExtractor:"
+      },
+      {
+        "kind": "func",
+        "name": "__init__",
+        "parent": "SymbolExtractor",
+        "line": 25,
+        "sig": "def __init__(self):"
+      },
+      {
+        "kind": "func",
+        "name": "_normalize_symbol_name",
+        "parent": "SymbolExtractor",
+        "line": 31,
+        "sig": "def _normalize_symbol_name(symbol: str) -> str:"
+      },
+      {
+        "kind": "func",
+        "name": "extract_relevant_source",
+        "parent": "SymbolExtractor",
+        "line": 36,
+        "sig": "def extract_relevant_source("
+      },
+      {
+        "kind": "func",
+        "name": "find_symbols",
+        "parent": "SymbolExtractor",
+        "line": 108,
+        "sig": "def find_symbols(node):"
+      }
+    ]
+  },
+  "context/ranking.py": {
+    "lines": 86,
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "PriorityLevel",
+        "parent": null,
+        "line": 7,
+        "sig": "class PriorityLevel(IntEnum):"
+      },
+      {
+        "kind": "class",
+        "name": "ContextItem",
+        "parent": null,
+        "line": 30,
+        "sig": "class ContextItem(BaseModel):"
+      },
+      {
+        "kind": "func",
+        "name": "__init__",
+        "parent": "ContextItem",
+        "line": 36,
+        "sig": "def __init__(self, **data):"
+      },
+      {
+        "kind": "class",
+        "name": "ContextRanker",
+        "parent": null,
+        "line": 42,
+        "sig": "class ContextRanker:"
+      },
+      {
+        "kind": "func",
+        "name": "is_mandatory",
+        "parent": "ContextRanker",
+        "line": 44,
+        "sig": "def is_mandatory(priority: PriorityLevel) -> bool:"
+      },
+      {
+        "kind": "func",
+        "name": "rank_and_trim_detailed",
+        "parent": "ContextRanker",
+        "line": 48,
+        "sig": "def rank_and_trim_detailed("
+      },
+      {
+        "kind": "func",
+        "name": "rank_and_trim",
+        "parent": "ContextRanker",
+        "line": 83,
+        "sig": "def rank_and_trim(cls, items: List[ContextItem], token_budget: int) -> List[ContextItem]:"
+      }
+    ]
+  },
+  "core/__init__.py": {
+    "lines": 0,
+    "symbols": []
+  },
+  "core/config.py": {
+    "lines": 23,
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "PipelineConfig",
+        "parent": null,
+        "line": 7,
+        "sig": "class PipelineConfig(BaseSettings):"
+      }
+    ]
+  },
+  "core/journal.py": {
+    "lines": 170,
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "JournalRecord",
+        "parent": null,
+        "line": 16,
+        "sig": "class JournalRecord(BaseModel):"
+      },
+      {
+        "kind": "class",
+        "name": "TransactionJournal",
+        "parent": null,
+        "line": 26,
+        "sig": "class TransactionJournal:"
+      },
+      {
+        "kind": "func",
+        "name": "__init__",
+        "parent": "TransactionJournal",
+        "line": 29,
+        "sig": "def __init__(self, repo_path: Path):"
+      },
+      {
+        "kind": "func",
+        "name": "_read_records",
+        "parent": "TransactionJournal",
+        "line": 39,
+        "sig": "def _read_records(self) -> Dict[str, JournalRecord]:"
+      },
+      {
+        "kind": "func",
+        "name": "_write_records",
+        "parent": "TransactionJournal",
+        "line": 52,
+        "sig": "def _write_records(self, records: Dict[str, JournalRecord]):"
+      },
+      {
+        "kind": "func",
+        "name": "record_start",
+        "parent": "TransactionJournal",
+        "line": 65,
+        "sig": "def record_start("
+      },
+      {
+        "kind": "func",
+        "name": "update_state",
+        "parent": "TransactionJournal",
+        "line": 91,
+        "sig": "def update_state(self, tx_id: str, state: TransactionState):"
+      },
+      {
+        "kind": "func",
+        "name": "flush",
+        "parent": "TransactionJournal",
+        "line": 106,
+        "sig": "def flush(self) -> None:"
+      },
+      {
+        "kind": "func",
+        "name": "record_end",
+        "parent": "TransactionJournal",
+        "line": 122,
+        "sig": "def record_end(self, tx_id: str):"
+      },
+      {
+        "kind": "func",
+        "name": "_apply_pending_overlay",
+        "parent": "TransactionJournal",
+        "line": 142,
+        "sig": "def _apply_pending_overlay(self, records: Dict[str, JournalRecord]) -> Dict[str, JournalRecord]:"
+      },
+      {
+        "kind": "func",
+        "name": "list_active",
+        "parent": "TransactionJournal",
+        "line": 158,
+        "sig": "def list_active(self) -> List[JournalRecord]:"
+      },
+      {
+        "kind": "func",
+        "name": "get_orphaned",
+        "parent": "TransactionJournal",
+        "line": 162,
+        "sig": "def get_orphaned(self) -> List[JournalRecord]:"
+      }
+    ]
+  },
+  "core/runtime.py": {
+    "lines": 649,
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "DSHRuntime",
+        "parent": null,
+        "line": 48,
+        "sig": "class DSHRuntime:"
+      },
+      {
+        "kind": "func",
+        "name": "__init__",
+        "parent": "DSHRuntime",
+        "line": 81,
+        "sig": "def __init__("
+      },
+      {
+        "kind": "func",
+        "name": "_log_event",
+        "parent": "DSHRuntime",
+        "line": 158,
+        "sig": "def _log_event(self, event: PipelineEvent, task_id: str, message: str = \"\", details: Optional[dict] = None):"
+      },
+      {
+        "kind": "func",
+        "name": "_safe_cleanup_worktree",
+        "parent": "DSHRuntime",
+        "line": 168,
+        "sig": "def _safe_cleanup_worktree(self, tx_worktree: Optional[TransactionWorktree], task_id: str) -> Optional[str]:"
+      },
+      {
+        "kind": "func",
+        "name": "_retrieve_advisory_episodes",
+        "parent": "DSHRuntime",
+        "line": 180,
+        "sig": "def _retrieve_advisory_episodes(self, task: TaskDefinition) -> Optional[List[EpisodeRecord]]:"
+      },
+      {
+        "kind": "func",
+        "name": "_store_success_episode",
+        "parent": "DSHRuntime",
+        "line": 211,
+        "sig": "def _store_success_episode("
+      },
+      {
+        "kind": "func",
+        "name": "execute_with_recovery",
+        "parent": "DSHRuntime",
+        "line": 238,
+        "sig": "def execute_with_recovery("
+      },
+      {
+        "kind": "func",
+        "name": "execute_with_model",
+        "parent": "DSHRuntime",
+        "line": 256,
+        "sig": "def execute_with_model("
+      },
+      {
+        "kind": "func",
+        "name": "execute_transaction",
+        "parent": "DSHRuntime",
+        "line": 324,
+        "sig": "def execute_transaction(self, task: TaskDefinition, proposal: PatchProposal) -> TransactionResult:"
+      }
+    ]
+  },
+  "core/state.py": {
+    "lines": 78,
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "PipelineEvent",
+        "parent": null,
+        "line": 7,
+        "sig": "class PipelineEvent(str, Enum):"
+      },
+      {
+        "kind": "class",
+        "name": "TransactionState",
+        "parent": null,
+        "line": 29,
+        "sig": "class TransactionState(str, Enum):"
+      },
+      {
+        "kind": "class",
+        "name": "FileStatus",
+        "parent": null,
+        "line": 49,
+        "sig": "class FileStatus(BaseModel):"
+      },
+      {
+        "kind": "class",
+        "name": "WorktreeMetadata",
+        "parent": null,
+        "line": 55,
+        "sig": "class WorktreeMetadata(BaseModel):"
+      },
+      {
+        "kind": "class",
+        "name": "EventLogEntry",
+        "parent": null,
+        "line": 63,
+        "sig": "class EventLogEntry(BaseModel):"
+      },
+      {
+        "kind": "class",
+        "name": "WorkspaceState",
+        "parent": null,
+        "line": 71,
+        "sig": "class WorkspaceState(BaseModel):"
+      }
+    ]
+  },
+  "core/workspace.py": {
+    "lines": 585,
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "WorkspaceError",
+        "parent": null,
+        "line": 19,
+        "sig": "class WorkspaceError(Exception):"
+      },
+      {
+        "kind": "class",
+        "name": "WorktreeCleanupError",
+        "parent": null,
+        "line": 23,
+        "sig": "class WorktreeCleanupError(WorkspaceError):"
+      },
+      {
+        "kind": "class",
+        "name": "WorktreeStagingError",
+        "parent": null,
+        "line": 27,
+        "sig": "class WorktreeStagingError(WorkspaceError):"
+      },
+      {
+        "kind": "func",
+        "name": "generate_transaction_id",
+        "parent": null,
+        "line": 31,
+        "sig": "def generate_transaction_id(task_id: str) -> str:"
+      },
+      {
+        "kind": "func",
+        "name": "parse_porcelain_v1_z",
+        "parent": null,
+        "line": 37,
+        "sig": "def parse_porcelain_v1_z(raw_bytes: bytes) -> List[FileStatus]:"
+      },
+      {
+        "kind": "func",
+        "name": "parse_diff_cached_name_only_z",
+        "parent": null,
+        "line": 74,
+        "sig": "def parse_diff_cached_name_only_z(raw_bytes: bytes) -> List[str]:"
+      },
+      {
+        "kind": "func",
+        "name": "parse_diff_cached_name_status_z",
+        "parent": null,
+        "line": 81,
+        "sig": "def parse_diff_cached_name_status_z(raw_bytes: bytes) -> List[Tuple[str, str, Optional[str]]]:"
+      },
+      {
+        "kind": "func",
+        "name": "_run_git_subprocess",
+        "parent": null,
+        "line": 116,
+        "sig": "def _run_git_subprocess(cwd: Path, *args, timeout: float = 30.0) -> Tuple[int, bytes, bytes]:"
+      },
+      {
+        "kind": "class",
+        "name": "TransactionWorktree",
+        "parent": null,
+        "line": 150,
+        "sig": "class TransactionWorktree:"
+      },
+      {
+        "kind": "func",
+        "name": "__init__",
+        "parent": "TransactionWorktree",
+        "line": 153,
+        "sig": "def __init__("
+      },
+      {
+        "kind": "func",
+        "name": "_invalidate_status_cache",
+        "parent": "TransactionWorktree",
+        "line": 179,
+        "sig": "def _invalidate_status_cache(self) -> None:"
+      },
+      {
+        "kind": "func",
+        "name": "_run_git",
+        "parent": "TransactionWorktree",
+        "line": 187,
+        "sig": "def _run_git(self, *args) -> str:"
+      },
+      {
+        "kind": "func",
+        "name": "_run_git_bytes",
+        "parent": "TransactionWorktree",
+        "line": 197,
+        "sig": "def _run_git_bytes(self, *args) -> bytes:"
+      },
+      {
+        "kind": "func",
+        "name": "get_head_commit",
+        "parent": "TransactionWorktree",
+        "line": 205,
+        "sig": "def get_head_commit(self) -> str:"
+      },
+      {
+        "kind": "func",
+        "name": "_get_status_bytes",
+        "parent": "TransactionWorktree",
+        "line": 208,
+        "sig": "def _get_status_bytes(self) -> bytes:"
+      },
+      {
+        "kind": "func",
+        "name": "get_status",
+        "parent": "TransactionWorktree",
+        "line": 214,
+        "sig": "def get_status(self) -> WorkspaceState:"
+      },
+      {
+        "kind": "func",
+        "name": "is_clean",
+        "parent": "TransactionWorktree",
+        "line": 226,
+        "sig": "def is_clean(self, allowed_untracked_paths: Optional[List[str]] = None) -> bool:"
+      },
+      {
+        "kind": "func",
+        "name": "verify_changed_paths",
+        "parent": "TransactionWorktree",
+        "line": 251,
+        "sig": "def verify_changed_paths("
+      },
+      {
+        "kind": "func",
+        "name": "stage_exact",
+        "parent": "TransactionWorktree",
+        "line": 277,
+        "sig": "def stage_exact(self, expected_paths: List[str]) -> None:"
+      },
+      {
+        "kind": "func",
+        "name": "commit",
+        "parent": "TransactionWorktree",
+        "line": 306,
+        "sig": "def commit("
+      },
+      {
+        "kind": "class",
+        "name": "WorkspaceManager",
+        "parent": null,
+        "line": 345,
+        "sig": "class WorkspaceManager:"
+      },
+      {
+        "kind": "func",
+        "name": "__init__",
+        "parent": "WorkspaceManager",
+        "line": 348,
+        "sig": "def __init__(self, repo_path: Path, timeout: float = 30.0):"
+      },
+      {
+        "kind": "func",
+        "name": "_run_git",
+        "parent": "WorkspaceManager",
+        "line": 356,
+        "sig": "def _run_git(self, *args) -> str:"
+      },
+      {
+        "kind": "func",
+        "name": "_run_git_bytes",
+        "parent": "WorkspaceManager",
+        "line": 366,
+        "sig": "def _run_git_bytes(self, *args) -> bytes:"
+      },
+      {
+        "kind": "func",
+        "name": "get_head_commit",
+        "parent": "WorkspaceManager",
+        "line": 374,
+        "sig": "def get_head_commit(self) -> str:"
+      },
+      {
+        "kind": "func",
+        "name": "get_status",
+        "parent": "WorkspaceManager",
+        "line": 377,
+        "sig": "def get_status(self) -> WorkspaceState:"
+      },
+      {
+        "kind": "func",
+        "name": "is_clean",
+        "parent": "WorkspaceManager",
+        "line": 389,
+        "sig": "def is_clean(self, allowed_untracked_paths: Optional[List[str]] = None) -> bool:"
+      },
+      {
+        "kind": "func",
+        "name": "create_transaction_worktree",
+        "parent": "WorkspaceManager",
+        "line": 416,
+        "sig": "def create_transaction_worktree("
+      },
+      {
+        "kind": "func",
+        "name": "remove_transaction_worktree",
+        "parent": "WorkspaceManager",
+        "line": 454,
+        "sig": "def remove_transaction_worktree("
+      },
+      {
+        "kind": "func",
+        "name": "get_orphaned_worktrees",
+        "parent": "WorkspaceManager",
+        "line": 494,
+        "sig": "def get_orphaned_worktrees(self) -> List[JournalRecord]:"
+      },
+      {
+        "kind": "func",
+        "name": "cleanup_orphaned_worktrees",
+        "parent": "WorkspaceManager",
+        "line": 498,
+        "sig": "def cleanup_orphaned_worktrees(self) -> List[str]:"
+      },
+      {
+        "kind": "func",
+        "name": "integrate_transaction",
+        "parent": "WorkspaceManager",
+        "line": 514,
+        "sig": "def integrate_transaction("
+      },
+      {
+        "kind": "func",
+        "name": "create_checkpoint",
+        "parent": "WorkspaceManager",
+        "line": 560,
+        "sig": "def create_checkpoint(self, task_id: str, allow_untracked: Optional[List[str]] = None) -> str:"
+      },
+      {
+        "kind": "func",
+        "name": "rollback",
+        "parent": "WorkspaceManager",
+        "line": 566,
+        "sig": "def rollback(self, checkpoint_tag: str):"
+      },
+      {
+        "kind": "func",
+        "name": "commit",
+        "parent": "WorkspaceManager",
+        "line": 572,
+        "sig": "def commit(self, task_id: str, message: str, expected_paths: Optional[List[str]] = None) -> str:"
+      }
+    ]
+  },
+  "memory/__init__.py": {
+    "lines": 0,
+    "symbols": []
+  },
+  "memory/episodic.py": {
+    "lines": 45,
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "EpisodeStatus",
+        "parent": null,
+        "line": 8,
+        "sig": "class EpisodeStatus(str, Enum):"
+      },
+      {
+        "kind": "class",
+        "name": "EpisodeValidation",
+        "parent": null,
+        "line": 14,
+        "sig": "class EpisodeValidation(BaseModel):"
+      },
+      {
+        "kind": "class",
+        "name": "EpisodeRecord",
+        "parent": null,
+        "line": 20,
+        "sig": "class EpisodeRecord(BaseModel):"
+      },
+      {
+        "kind": "class",
+        "name": "EpisodicMemoryStore",
+        "parent": null,
+        "line": 34,
+        "sig": "class EpisodicMemoryStore:"
+      },
+      {
+        "kind": "func",
+        "name": "__init__",
+        "parent": "EpisodicMemoryStore",
+        "line": 35,
+        "sig": "def __init__(self):"
+      },
+      {
+        "kind": "func",
+        "name": "store_episode",
+        "parent": "EpisodicMemoryStore",
+        "line": 38,
+        "sig": "def store_episode(self, episode: EpisodeRecord):"
+      },
+      {
+        "kind": "func",
+        "name": "get_all_episodes",
+        "parent": "EpisodicMemoryStore",
+        "line": 41,
+        "sig": "def get_all_episodes(self) -> List[EpisodeRecord]:"
+      },
+      {
+        "kind": "func",
+        "name": "get_by_symbol",
+        "parent": "EpisodicMemoryStore",
+        "line": 44,
+        "sig": "def get_by_symbol(self, symbol: str) -> List[EpisodeRecord]:"
+      }
+    ]
+  },
+  "memory/retrieval.py": {
+    "lines": 41,
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "StaleDetector",
+        "parent": null,
+        "line": 5,
+        "sig": "class StaleDetector:"
+      },
+      {
+        "kind": "func",
+        "name": "check_staleness",
+        "parent": "StaleDetector",
+        "line": 7,
+        "sig": "def check_staleness(episode: EpisodeRecord, current_version: str, current_env: str = \"linux\") -> EpisodeStatus:"
+      },
+      {
+        "kind": "class",
+        "name": "EpisodeRetriever",
+        "parent": null,
+        "line": 14,
+        "sig": "class EpisodeRetriever:"
+      },
+      {
+        "kind": "func",
+        "name": "__init__",
+        "parent": "EpisodeRetriever",
+        "line": 15,
+        "sig": "def __init__(self, store: EpisodicMemoryStore):"
+      },
+      {
+        "kind": "func",
+        "name": "retrieve_advisory_episodes",
+        "parent": "EpisodeRetriever",
+        "line": 18,
+        "sig": "def retrieve_advisory_episodes("
+      }
+    ]
+  },
+  "model/__init__.py": {
+    "lines": 0,
+    "symbols": []
+  },
+  "model/providers.py": {
+    "lines": 394,
+    "symbols": [
+      {
+        "kind": "func",
+        "name": "resolve_deepseek_api_key",
+        "parent": null,
+        "line": 19,
+        "sig": "def resolve_deepseek_api_key() -> Optional[str]:"
+      },
+      {
+        "kind": "class",
+        "name": "BaseModelProvider",
+        "parent": null,
+        "line": 67,
+        "sig": "class BaseModelProvider(ABC):"
+      },
+      {
+        "kind": "func",
+        "name": "generate",
+        "parent": "BaseModelProvider",
+        "line": 69,
+        "sig": "def generate(self, req: ModelRequest) -> ModelResponse:"
+      },
+      {
+        "kind": "func",
+        "name": "extract_patch_proposal_structured",
+        "parent": "BaseModelProvider",
+        "line": 73,
+        "sig": "def extract_patch_proposal_structured("
+      },
+      {
+        "kind": "func",
+        "name": "extract_patch_proposal",
+        "parent": "BaseModelProvider",
+        "line": 148,
+        "sig": "def extract_patch_proposal(cls, raw_text: str) -> Optional[PatchProposal]:"
+      },
+      {
+        "kind": "class",
+        "name": "MockModelProvider",
+        "parent": null,
+        "line": 154,
+        "sig": "class MockModelProvider(BaseModelProvider):"
+      },
+      {
+        "kind": "func",
+        "name": "__init__",
+        "parent": "MockModelProvider",
+        "line": 155,
+        "sig": "def __init__("
+      },
+      {
+        "kind": "func",
+        "name": "generate",
+        "parent": "MockModelProvider",
+        "line": 174,
+        "sig": "def generate(self, req: ModelRequest) -> ModelResponse:"
+      },
+      {
+        "kind": "class",
+        "name": "OpenAICompatibleProvider",
+        "parent": null,
+        "line": 217,
+        "sig": "class OpenAICompatibleProvider(BaseModelProvider):"
+      },
+      {
+        "kind": "func",
+        "name": "__init__",
+        "parent": "OpenAICompatibleProvider",
+        "line": 218,
+        "sig": "def __init__("
+      },
+      {
+        "kind": "func",
+        "name": "_get_client",
+        "parent": "OpenAICompatibleProvider",
+        "line": 241,
+        "sig": "def _get_client(self) -> httpx.Client:"
+      },
+      {
+        "kind": "func",
+        "name": "close",
+        "parent": "OpenAICompatibleProvider",
+        "line": 250,
+        "sig": "def close(self):"
+      },
+      {
+        "kind": "func",
+        "name": "__enter__",
+        "parent": "OpenAICompatibleProvider",
+        "line": 255,
+        "sig": "def __enter__(self):"
+      },
+      {
+        "kind": "func",
+        "name": "__exit__",
+        "parent": "OpenAICompatibleProvider",
+        "line": 258,
+        "sig": "def __exit__(self, exc_type, exc_val, exc_tb):"
+      },
+      {
+        "kind": "func",
+        "name": "generate",
+        "parent": "OpenAICompatibleProvider",
+        "line": 261,
+        "sig": "def generate(self, req: ModelRequest) -> ModelResponse:"
+      }
+    ]
+  },
+  "model/router.py": {
+    "lines": 41,
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "ModelRouter",
+        "parent": null,
+        "line": 7,
+        "sig": "class ModelRouter:"
+      },
+      {
+        "kind": "func",
+        "name": "route",
+        "parent": "ModelRouter",
+        "line": 9,
+        "sig": "def route("
+      }
+    ]
+  },
+  "model/schemas.py": {
+    "lines": 33,
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "ModelType",
+        "parent": null,
+        "line": 7,
+        "sig": "class ModelType(str, Enum):"
+      },
+      {
+        "kind": "class",
+        "name": "ModelRequest",
+        "parent": null,
+        "line": 12,
+        "sig": "class ModelRequest(BaseModel):"
+      },
+      {
+        "kind": "class",
+        "name": "ModelResponse",
+        "parent": null,
+        "line": 24,
+        "sig": "class ModelResponse(BaseModel):"
+      }
+    ]
+  },
+  "orchestrator/__init__.py": {
+    "lines": 19,
+    "symbols": []
+  },
+  "orchestrator/coordinator.py": {
+    "lines": 447,
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "TaskExecutionRecord",
+        "parent": null,
+        "line": 28,
+        "sig": "class TaskExecutionRecord(BaseModel):"
+      },
+      {
+        "kind": "class",
+        "name": "OrchestrationResult",
+        "parent": null,
+        "line": 38,
+        "sig": "class OrchestrationResult(BaseModel):"
+      },
+      {
+        "kind": "class",
+        "name": "AutonomousCoordinator",
+        "parent": null,
+        "line": 47,
+        "sig": "class AutonomousCoordinator:"
+      },
+      {
+        "kind": "func",
+        "name": "__init__",
+        "parent": "AutonomousCoordinator",
+        "line": 52,
+        "sig": "def __init__("
+      },
+      {
+        "kind": "func",
+        "name": "_red_test_worktree_callback",
+        "parent": "AutonomousCoordinator",
+        "line": 91,
+        "sig": "def _red_test_worktree_callback(self, task: PlannedTask):"
+      },
+      {
+        "kind": "func",
+        "name": "_callback",
+        "parent": "AutonomousCoordinator",
+        "line": 95,
+        "sig": "def _callback(worktree_path) -> None:"
+      },
+      {
+        "kind": "func",
+        "name": "_untracked_allowance_for_manifest",
+        "parent": "AutonomousCoordinator",
+        "line": 102,
+        "sig": "def _untracked_allowance_for_manifest(self) -> Optional[List[str]]:"
+      },
+      {
+        "kind": "func",
+        "name": "_manifest_init",
+        "parent": "AutonomousCoordinator",
+        "line": 118,
+        "sig": "def _manifest_init(self, run_dir: Path) -> Path:"
+      },
+      {
+        "kind": "func",
+        "name": "_manifest_update",
+        "parent": "AutonomousCoordinator",
+        "line": 132,
+        "sig": "def _manifest_update("
+      },
+      {
+        "kind": "func",
+        "name": "_manifest_atomic_write",
+        "parent": "AutonomousCoordinator",
+        "line": 159,
+        "sig": "def _manifest_atomic_write(manifest_path: Path, data: Dict[str, Any]) -> None:"
+      },
+      {
+        "kind": "func",
+        "name": "_write_red_test_to_main",
+        "parent": "AutonomousCoordinator",
+        "line": 163,
+        "sig": "def _write_red_test_to_main(self, task: PlannedTask, worktree_path: Optional[Path] = None) -> bool:"
+      },
+      {
+        "kind": "func",
+        "name": "_ensure_red_test_in_worktree",
+        "parent": "AutonomousCoordinator",
+        "line": 173,
+        "sig": "def _ensure_red_test_in_worktree(self, task: PlannedTask, worktree_path: Path) -> bool:"
+      },
+      {
+        "kind": "func",
+        "name": "_count_discovered_tests",
+        "parent": "AutonomousCoordinator",
+        "line": 177,
+        "sig": "def _count_discovered_tests(self, count_cmd: List[str]) -> Optional[int]:"
+      },
+      {
+        "kind": "func",
+        "name": "_verify_red_test_discovered",
+        "parent": "AutonomousCoordinator",
+        "line": 193,
+        "sig": "def _verify_red_test_discovered("
+      },
+      {
+        "kind": "func",
+        "name": "_review_diff_with_qa",
+        "parent": "AutonomousCoordinator",
+        "line": 222,
+        "sig": "def _review_diff_with_qa("
+      },
+      {
+        "kind": "func",
+        "name": "_review_diff_with_antigravity",
+        "parent": "AutonomousCoordinator",
+        "line": 270,
+        "sig": "def _review_diff_with_antigravity(self, task: PlannedTask, diff_text: str) -> Dict[str, Any]:"
+      },
+      {
+        "kind": "func",
+        "name": "run",
+        "parent": "AutonomousCoordinator",
+        "line": 275,
+        "sig": "def run(self, user_goal: str, max_tasks: int = 3) -> OrchestrationResult:"
+      }
+    ]
+  },
+  "orchestrator/planner.py": {
+    "lines": 191,
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "PlannedTask",
+        "parent": null,
+        "line": 15,
+        "sig": "class PlannedTask(BaseModel):"
+      },
+      {
+        "kind": "class",
+        "name": "AuditReport",
+        "parent": null,
+        "line": 30,
+        "sig": "class AuditReport(BaseModel):"
+      },
+      {
+        "kind": "class",
+        "name": "AutonomousPlanner",
+        "parent": null,
+        "line": 38,
+        "sig": "class AutonomousPlanner:"
+      },
+      {
+        "kind": "func",
+        "name": "__init__",
+        "parent": "AutonomousPlanner",
+        "line": 43,
+        "sig": "def __init__(self, target_repo: Path, qa_client: SubagentClient):"
+      },
+      {
+        "kind": "func",
+        "name": "inspect_repo_profile",
+        "parent": "AutonomousPlanner",
+        "line": 49,
+        "sig": "def inspect_repo_profile(self) -> Dict[str, Any]:"
+      },
+      {
+        "kind": "func",
+        "name": "audit_and_plan",
+        "parent": "AutonomousPlanner",
+        "line": 135,
+        "sig": "def audit_and_plan(self, user_goal: str, max_tasks: int = 3) -> AuditReport:"
+      }
+    ]
+  },
+  "orchestrator/subagents.py": {
+    "lines": 336,
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "SubagentClient",
+        "parent": null,
+        "line": 18,
+        "sig": "class SubagentClient:"
+      },
+      {
+        "kind": "func",
+        "name": "__init__",
+        "parent": "SubagentClient",
+        "line": 27,
+        "sig": "def __init__("
+      },
+      {
+        "kind": "func",
+        "name": "set_mock_response",
+        "parent": "SubagentClient",
+        "line": 38,
+        "sig": "def set_mock_response(self, prompt_keyword: str, response: Any):"
+      },
+      {
+        "kind": "func",
+        "name": "query",
+        "parent": "SubagentClient",
+        "line": 42,
+        "sig": "def query(self, prompt: str, timeout: Optional[int] = None) -> str:"
+      },
+      {
+        "kind": "func",
+        "name": "query_json",
+        "parent": "SubagentClient",
+        "line": 113,
+        "sig": "def query_json(self, prompt: str, timeout: Optional[int] = None) -> Dict[str, Any]:"
+      },
+      {
+        "kind": "func",
+        "name": "_extract_json",
+        "parent": "SubagentClient",
+        "line": 119,
+        "sig": "def _extract_json(text: str) -> Dict[str, Any]:"
+      },
+      {
+        "kind": "func",
+        "name": "create_qa_client",
+        "parent": null,
+        "line": 148,
+        "sig": "def create_qa_client(model_or_cli: str, test_mode: bool = False) -> SubagentClient:"
+      },
+      {
+        "kind": "func",
+        "name": "create_dev_provider",
+        "parent": null,
+        "line": 218,
+        "sig": "def create_dev_provider("
+      },
+      {
+        "kind": "class",
+        "name": "AntigravityClient",
+        "parent": null,
+        "line": 294,
+        "sig": "class AntigravityClient(SubagentClient):"
+      },
+      {
+        "kind": "func",
+        "name": "__init__",
+        "parent": "AntigravityClient",
+        "line": 297,
+        "sig": "def __init__(self, cli_path: Optional[str] = None, test_mode: bool = False):"
+      },
+      {
+        "kind": "class",
+        "name": "DeepSeekClient",
+        "parent": null,
+        "line": 307,
+        "sig": "class DeepSeekClient:"
+      },
+      {
+        "kind": "func",
+        "name": "__init__",
+        "parent": "DeepSeekClient",
+        "line": 310,
+        "sig": "def __init__("
+      },
+      {
+        "kind": "func",
+        "name": "set_mock_provider",
+        "parent": "DeepSeekClient",
+        "line": 325,
+        "sig": "def set_mock_provider(self, provider: MockModelProvider):"
+      },
+      {
+        "kind": "func",
+        "name": "get_provider",
+        "parent": "DeepSeekClient",
+        "line": 328,
+        "sig": "def get_provider(self) -> BaseModelProvider:"
+      }
+    ]
+  },
+  "recon/__init__.py": {
+    "lines": 0,
+    "symbols": []
+  },
+  "recon/database.py": {
+    "lines": 239,
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "MatchState",
+        "parent": null,
+        "line": 9,
+        "sig": "class MatchState(str, Enum):"
+      },
+      {
+        "kind": "class",
+        "name": "SymbolRecord",
+        "parent": null,
+        "line": 15,
+        "sig": "class SymbolRecord(BaseModel):"
+      },
+      {
+        "kind": "class",
+        "name": "CrossVersionMatchRecord",
+        "parent": null,
+        "line": 26,
+        "sig": "class CrossVersionMatchRecord(BaseModel):"
+      },
+      {
+        "kind": "class",
+        "name": "EvidenceDatabase",
+        "parent": null,
+        "line": 41,
+        "sig": "class EvidenceDatabase:"
+      },
+      {
+        "kind": "func",
+        "name": "__init__",
+        "parent": "EvidenceDatabase",
+        "line": 42,
+        "sig": "def __init__(self, db_path: Optional[Path] = None):"
+      },
+      {
+        "kind": "func",
+        "name": "_init_tables",
+        "parent": "EvidenceDatabase",
+        "line": 47,
+        "sig": "def _init_tables(self):"
+      },
+      {
+        "kind": "func",
+        "name": "insert_symbol",
+        "parent": "EvidenceDatabase",
+        "line": 96,
+        "sig": "def insert_symbol(self, record: SymbolRecord):"
+      },
+      {
+        "kind": "func",
+        "name": "insert_call_edge",
+        "parent": "EvidenceDatabase",
+        "line": 115,
+        "sig": "def insert_call_edge(self, caller: str, callee: str, version: str):"
+      },
+      {
+        "kind": "func",
+        "name": "insert_mapping",
+        "parent": "EvidenceDatabase",
+        "line": 124,
+        "sig": "def insert_mapping(self, record: CrossVersionMatchRecord):"
+      },
+      {
+        "kind": "func",
+        "name": "get_symbol",
+        "parent": "EvidenceDatabase",
+        "line": 147,
+        "sig": "def get_symbol(self, symbol_name: str, version: str, signature: Optional[str] = None) -> Optional[SymbolRecord]:"
+      },
+      {
+        "kind": "func",
+        "name": "get_symbols_by_name",
+        "parent": "EvidenceDatabase",
+        "line": 171,
+        "sig": "def get_symbols_by_name(self, symbol_name: str, version: str) -> List[SymbolRecord]:"
+      },
+      {
+        "kind": "func",
+        "name": "get_callers",
+        "parent": "EvidenceDatabase",
+        "line": 190,
+        "sig": "def get_callers(self, symbol_name: str, version: str) -> List[str]:"
+      },
+      {
+        "kind": "func",
+        "name": "get_callees",
+        "parent": "EvidenceDatabase",
+        "line": 197,
+        "sig": "def get_callees(self, symbol_name: str, version: str) -> List[str]:"
+      },
+      {
+        "kind": "func",
+        "name": "get_best_mapping",
+        "parent": "EvidenceDatabase",
+        "line": 204,
+        "sig": "def get_best_mapping(self, old_symbol: str, old_version: str, new_version: str) -> Optional[CrossVersionMatchRecord]:"
+      },
+      {
+        "kind": "func",
+        "name": "close",
+        "parent": "EvidenceDatabase",
+        "line": 238,
+        "sig": "def close(self):"
+      }
+    ]
+  },
+  "recon/diff.py": {
+    "lines": 169,
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "CrossVersionMatcher",
+        "parent": null,
+        "line": 6,
+        "sig": "class CrossVersionMatcher:"
+      },
+      {
+        "kind": "func",
+        "name": "__init__",
+        "parent": "CrossVersionMatcher",
+        "line": 7,
+        "sig": "def __init__("
+      },
+      {
+        "kind": "func",
+        "name": "compute_similarity",
+        "parent": "CrossVersionMatcher",
+        "line": 18,
+        "sig": "def compute_similarity(s1: str, s2: str) -> float:"
+      },
+      {
+        "kind": "func",
+        "name": "compute_jaccard",
+        "parent": "CrossVersionMatcher",
+        "line": 26,
+        "sig": "def compute_jaccard(set1: Set[str], set2: Set[str]) -> float:"
+      },
+      {
+        "kind": "func",
+        "name": "_extract_param_types",
+        "parent": "CrossVersionMatcher",
+        "line": 38,
+        "sig": "def _extract_param_types(parameters: List[str]) -> List[str]:"
+      },
+      {
+        "kind": "func",
+        "name": "_compute_parameter_similarity",
+        "parent": "CrossVersionMatcher",
+        "line": 55,
+        "sig": "def _compute_parameter_similarity(self, p1: List[str], p2: List[str]) -> float:"
+      },
+      {
+        "kind": "func",
+        "name": "match_symbol",
+        "parent": "CrossVersionMatcher",
+        "line": 70,
+        "sig": "def match_symbol("
+      }
+    ]
+  },
+  "recon/evidence.py": {
+    "lines": 42,
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "EvidenceService",
+        "parent": null,
+        "line": 5,
+        "sig": "class EvidenceService:"
+      },
+      {
+        "kind": "func",
+        "name": "__init__",
+        "parent": "EvidenceService",
+        "line": 6,
+        "sig": "def __init__(self, db: EvidenceDatabase):"
+      },
+      {
+        "kind": "func",
+        "name": "get_symbol_evidence",
+        "parent": "EvidenceService",
+        "line": 9,
+        "sig": "def get_symbol_evidence("
+      }
+    ]
+  },
+  "recon/indexer.py": {
+    "lines": 143,
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "SymbolIndexer",
+        "parent": null,
+        "line": 9,
+        "sig": "class SymbolIndexer:"
+      },
+      {
+        "kind": "func",
+        "name": "__init__",
+        "parent": "SymbolIndexer",
+        "line": 10,
+        "sig": "def __init__(self, db: EvidenceDatabase):"
+      },
+      {
+        "kind": "func",
+        "name": "index_symbol_dict",
+        "parent": "SymbolIndexer",
+        "line": 15,
+        "sig": "def index_symbol_dict(self, symbol_data: dict, version: str):"
+      },
+      {
+        "kind": "func",
+        "name": "index_call_edges",
+        "parent": "SymbolIndexer",
+        "line": 28,
+        "sig": "def index_call_edges(self, edges: List[dict], version: str):"
+      },
+      {
+        "kind": "func",
+        "name": "parse_il2cpp_dump_snippet",
+        "parent": "SymbolIndexer",
+        "line": 32,
+        "sig": "def parse_il2cpp_dump_snippet(self, dump_text: str, version: str):"
+      },
+      {
+        "kind": "func",
+        "name": "walk",
+        "parent": "SymbolIndexer",
+        "line": 60,
+        "sig": "def walk(node, current_class=\"DumpClass\", current_ns=top_ns):"
+      }
+    ]
+  },
+  "recovery/__init__.py": {
+    "lines": 0,
+    "symbols": []
+  },
+  "recovery/classifier.py": {
+    "lines": 109,
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "FailureType",
+        "parent": null,
+        "line": 9,
+        "sig": "class FailureType(str, Enum):"
+      },
+      {
+        "kind": "class",
+        "name": "FailureClassifier",
+        "parent": null,
+        "line": 40,
+        "sig": "class FailureClassifier:"
+      },
+      {
+        "kind": "func",
+        "name": "is_hard_stop",
+        "parent": "FailureClassifier",
+        "line": 60,
+        "sig": "def is_hard_stop(cls, failure_type: FailureType) -> bool:"
+      },
+      {
+        "kind": "func",
+        "name": "is_transient",
+        "parent": "FailureClassifier",
+        "line": 65,
+        "sig": "def is_transient(cls, failure_type: FailureType) -> bool:"
+      },
+      {
+        "kind": "func",
+        "name": "classify_exception",
+        "parent": "FailureClassifier",
+        "line": 70,
+        "sig": "def classify_exception(cls, exc: Exception) -> FailureType:"
+      },
+      {
+        "kind": "func",
+        "name": "classify_build_failure",
+        "parent": "FailureClassifier",
+        "line": 82,
+        "sig": "def classify_build_failure(cls, build_result: BuildResult) -> FailureType:"
+      }
+    ]
+  },
+  "recovery/history.py": {
+    "lines": 111,
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "AttemptRecord",
+        "parent": null,
+        "line": 7,
+        "sig": "class AttemptRecord(BaseModel):"
+      },
+      {
+        "kind": "class",
+        "name": "RecoveryHistory",
+        "parent": null,
+        "line": 16,
+        "sig": "class RecoveryHistory(BaseModel):"
+      },
+      {
+        "kind": "func",
+        "name": "record_attempt",
+        "parent": "RecoveryHistory",
+        "line": 20,
+        "sig": "def record_attempt("
+      },
+      {
+        "kind": "func",
+        "name": "_derive_lesson",
+        "parent": "RecoveryHistory",
+        "line": 40,
+        "sig": "def _derive_lesson(self, failure_type: FailureType, error_message: str) -> str:"
+      },
+      {
+        "kind": "func",
+        "name": "format_history_for_prompt",
+        "parent": "RecoveryHistory",
+        "line": 61,
+        "sig": "def format_history_for_prompt(self, max_history_chars: int = 1500) -> str:"
+      }
+    ]
+  },
+  "recovery/manager.py": {
+    "lines": 173,
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "RecoveryManager",
+        "parent": null,
+        "line": 19,
+        "sig": "class RecoveryManager:"
+      },
+      {
+        "kind": "func",
+        "name": "__init__",
+        "parent": "RecoveryManager",
+        "line": 22,
+        "sig": "def __init__(self):"
+      },
+      {
+        "kind": "func",
+        "name": "run_recovery_loop",
+        "parent": "RecoveryManager",
+        "line": 25,
+        "sig": "def run_recovery_loop("
+      }
+    ]
+  },
+  "safety/__init__.py": {
+    "lines": 0,
+    "symbols": []
+  },
+  "safety/ast_guard.py": {
+    "lines": 454,
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "ASTViolationError",
+        "parent": null,
+        "line": 8,
+        "sig": "class ASTViolationError(Exception):"
+      },
+      {
+        "kind": "class",
+        "name": "CSharpSymbol",
+        "parent": null,
+        "line": 14,
+        "sig": "class CSharpSymbol:"
+      },
+      {
+        "kind": "func",
+        "name": "qualified_name",
+        "parent": "CSharpSymbol",
+        "line": 30,
+        "sig": "def qualified_name(self) -> str:"
+      },
+      {
+        "kind": "func",
+        "name": "full_qualified_name",
+        "parent": "CSharpSymbol",
+        "line": 36,
+        "sig": "def full_qualified_name(self) -> str:"
+      },
+      {
+        "kind": "func",
+        "name": "signature",
+        "parent": "CSharpSymbol",
+        "line": 46,
+        "sig": "def signature(self) -> str:"
+      },
+      {
+        "kind": "func",
+        "name": "identity_key",
+        "parent": "CSharpSymbol",
+        "line": 54,
+        "sig": "def identity_key(self) -> str:"
+      },
+      {
+        "kind": "func",
+        "name": "matches_target",
+        "parent": "CSharpSymbol",
+        "line": 61,
+        "sig": "def matches_target(self, target_pattern: str) -> bool:"
+      },
+      {
+        "kind": "class",
+        "name": "ASTGuard",
+        "parent": null,
+        "line": 111,
+        "sig": "class ASTGuard:"
+      },
+      {
+        "kind": "func",
+        "name": "__init__",
+        "parent": "ASTGuard",
+        "line": 121,
+        "sig": "def __init__(self):"
+      },
+      {
+        "kind": "func",
+        "name": "_get_enclosing_type",
+        "parent": "ASTGuard",
+        "line": 126,
+        "sig": "def _get_enclosing_type(self, node: Node, code_bytes: bytes) -> Tuple[str, str]:"
+      },
+      {
+        "kind": "func",
+        "name": "_extract_symbols",
+        "parent": "ASTGuard",
+        "line": 145,
+        "sig": "def _extract_symbols(self, root: Node, code_bytes: bytes) -> List[CSharpSymbol]:"
+      },
+      {
+        "kind": "func",
+        "name": "_extract_assert_predicates",
+        "parent": "ASTGuard",
+        "line": 266,
+        "sig": "def _extract_assert_predicates(self, root: Node, code_bytes: bytes) -> List[Tuple[str, str, bool]]:"
+      },
+      {
+        "kind": "func",
+        "name": "_check_early_return_and_stubs",
+        "parent": "ASTGuard",
+        "line": 303,
+        "sig": "def _check_early_return_and_stubs("
+      },
+      {
+        "kind": "func",
+        "name": "validate_csharp_transition",
+        "parent": "ASTGuard",
+        "line": 339,
+        "sig": "def validate_csharp_transition("
+      }
+    ]
+  },
+  "safety/patch_engine.py": {
+    "lines": 344,
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "PatchValidationError",
+        "parent": null,
+        "line": 13,
+        "sig": "class PatchValidationError(Exception):"
+      },
+      {
+        "kind": "func",
+        "name": "detect_newline_style",
+        "parent": null,
+        "line": 23,
+        "sig": "def detect_newline_style(content: str) -> str:"
+      },
+      {
+        "kind": "func",
+        "name": "atomic_write_file",
+        "parent": null,
+        "line": 30,
+        "sig": "def atomic_write_file("
+      },
+      {
+        "kind": "func",
+        "name": "normalize_repo_path",
+        "parent": null,
+        "line": 77,
+        "sig": "def normalize_repo_path(file_path: str) -> str:"
+      },
+      {
+        "kind": "func",
+        "name": "_locate_unique_match",
+        "parent": null,
+        "line": 126,
+        "sig": "def _locate_unique_match(content: str, old_text: str, file_path: str, hunk_idx: int) -> int:"
+      },
+      {
+        "kind": "func",
+        "name": "apply_hunks",
+        "parent": null,
+        "line": 161,
+        "sig": "def apply_hunks("
+      },
+      {
+        "kind": "func",
+        "name": "apply_file_patch",
+        "parent": null,
+        "line": 250,
+        "sig": "def apply_file_patch("
+      },
+      {
+        "kind": "func",
+        "name": "validate_and_simulate_proposal",
+        "parent": null,
+        "line": 264,
+        "sig": "def validate_and_simulate_proposal("
+      }
+    ]
+  },
+  "safety/patch_validator.py": {
+    "lines": 47,
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "PatchValidator",
+        "parent": null,
+        "line": 15,
+        "sig": "class PatchValidator:"
+      },
+      {
+        "kind": "func",
+        "name": "parse_unified_diff",
+        "parent": "PatchValidator",
+        "line": 17,
+        "sig": "def parse_unified_diff(diff_str: str) -> PatchProposal:"
+      },
+      {
+        "kind": "func",
+        "name": "validate_proposal",
+        "parent": "PatchValidator",
+        "line": 44,
+        "sig": "def validate_proposal(proposal: PatchProposal, repo_path: Path) -> Dict[str, str]:"
+      }
+    ]
+  },
+  "safety/policy.py": {
+    "lines": 127,
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "SafetyPolicy",
+        "parent": null,
+        "line": 6,
+        "sig": "class SafetyPolicy(BaseModel):"
+      },
+      {
+        "kind": "class",
+        "name": "BudgetReservation",
+        "parent": null,
+        "line": 37,
+        "sig": "class BudgetReservation(BaseModel):"
+      },
+      {
+        "kind": "class",
+        "name": "SessionBudgetTracker",
+        "parent": null,
+        "line": 45,
+        "sig": "class SessionBudgetTracker:"
+      },
+      {
+        "kind": "func",
+        "name": "__init__",
+        "parent": "SessionBudgetTracker",
+        "line": 46,
+        "sig": "def __init__(self, policy: SafetyPolicy):"
+      },
+      {
+        "kind": "func",
+        "name": "reserve",
+        "parent": "SessionBudgetTracker",
+        "line": 54,
+        "sig": "def reserve(self, reservation_id: str, lines_added: int, lines_deleted: int) -> BudgetReservation:"
+      },
+      {
+        "kind": "func",
+        "name": "commit",
+        "parent": "SessionBudgetTracker",
+        "line": 81,
+        "sig": "def commit(self, reservation_id: str):"
+      },
+      {
+        "kind": "func",
+        "name": "release",
+        "parent": "SessionBudgetTracker",
+        "line": 91,
+        "sig": "def release(self, reservation_id: str):"
+      },
+      {
+        "kind": "func",
+        "name": "check_and_add",
+        "parent": "SessionBudgetTracker",
+        "line": 98,
+        "sig": "def check_and_add(self, lines_added: int, lines_deleted: int):"
+      },
+      {
+        "kind": "func",
+        "name": "reset",
+        "parent": "SessionBudgetTracker",
+        "line": 121,
+        "sig": "def reset(self):"
+      }
+    ]
+  },
+  "safety/scope_guard.py": {
+    "lines": 178,
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "ScopeViolationError",
+        "parent": null,
+        "line": 12,
+        "sig": "class ScopeViolationError(Exception):"
+      },
+      {
+        "kind": "class",
+        "name": "ScopeGuard",
+        "parent": null,
+        "line": 16,
+        "sig": "class ScopeGuard:"
+      },
+      {
+        "kind": "func",
+        "name": "__init__",
+        "parent": "ScopeGuard",
+        "line": 23,
+        "sig": "def __init__("
+      },
+      {
+        "kind": "func",
+        "name": "validate",
+        "parent": "ScopeGuard",
+        "line": 32,
+        "sig": "def validate("
+      }
+    ]
+  },
+  "safety/tree_sitter_shared.py": {
+    "lines": 24,
+    "symbols": [
+      {
+        "kind": "func",
+        "name": "get_csharp_language",
+        "parent": null,
+        "line": 14,
+        "sig": "def get_csharp_language() -> Language:"
+      }
+    ]
+  },
+  "task/__init__.py": {
+    "lines": 0,
+    "symbols": []
+  },
+  "task/dag.py": {
+    "lines": 107,
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "DAGCycleError",
+        "parent": null,
+        "line": 6,
+        "sig": "class DAGCycleError(Exception):"
+      },
+      {
+        "kind": "class",
+        "name": "DAGDependencyError",
+        "parent": null,
+        "line": 10,
+        "sig": "class DAGDependencyError(Exception):"
+      },
+      {
+        "kind": "class",
+        "name": "TaskDAG",
+        "parent": null,
+        "line": 14,
+        "sig": "class TaskDAG:"
+      },
+      {
+        "kind": "func",
+        "name": "__init__",
+        "parent": "TaskDAG",
+        "line": 15,
+        "sig": "def __init__(self):"
+      },
+      {
+        "kind": "func",
+        "name": "add_task",
+        "parent": "TaskDAG",
+        "line": 20,
+        "sig": "def add_task(self, task: TaskDefinition):"
+      },
+      {
+        "kind": "func",
+        "name": "build_and_validate",
+        "parent": "TaskDAG",
+        "line": 27,
+        "sig": "def build_and_validate(self):"
+      },
+      {
+        "kind": "func",
+        "name": "get_descendants",
+        "parent": "TaskDAG",
+        "line": 65,
+        "sig": "def get_descendants(self, task_id: str) -> Set[str]:"
+      },
+      {
+        "kind": "func",
+        "name": "get_ready_tasks",
+        "parent": "TaskDAG",
+        "line": 77,
+        "sig": "def get_ready_tasks("
+      },
+      {
+        "kind": "func",
+        "name": "topological_sort",
+        "parent": "TaskDAG",
+        "line": 93,
+        "sig": "def topological_sort(self) -> List[TaskDefinition]:"
+      }
+    ]
+  },
+  "task/locks.py": {
+    "lines": 47,
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "ResourceLockManager",
+        "parent": null,
+        "line": 7,
+        "sig": "class ResourceLockManager:"
+      },
+      {
+        "kind": "func",
+        "name": "__init__",
+        "parent": "ResourceLockManager",
+        "line": 10,
+        "sig": "def __init__(self):"
+      },
+      {
+        "kind": "func",
+        "name": "can_acquire",
+        "parent": "ResourceLockManager",
+        "line": 15,
+        "sig": "def can_acquire(self, task: TaskDefinition) -> bool:"
+      },
+      {
+        "kind": "func",
+        "name": "acquire",
+        "parent": "ResourceLockManager",
+        "line": 24,
+        "sig": "def acquire(self, task: TaskDefinition) -> bool:"
+      },
+      {
+        "kind": "func",
+        "name": "release",
+        "parent": "ResourceLockManager",
+        "line": 37,
+        "sig": "def release(self, task: TaskDefinition):"
+      },
+      {
+        "kind": "func",
+        "name": "reset",
+        "parent": "ResourceLockManager",
+        "line": 45,
+        "sig": "def reset(self):"
+      }
+    ]
+  },
+  "task/scheduler.py": {
+    "lines": 221,
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "DAGExecutionSummary",
+        "parent": null,
+        "line": 16,
+        "sig": "class DAGExecutionSummary(BaseModel):"
+      },
+      {
+        "kind": "class",
+        "name": "DAGScheduler",
+        "parent": null,
+        "line": 25,
+        "sig": "class DAGScheduler:"
+      },
+      {
+        "kind": "func",
+        "name": "__init__",
+        "parent": "DAGScheduler",
+        "line": 26,
+        "sig": "def __init__(self, dag: TaskDAG, runtime: DSHRuntime):"
+      },
+      {
+        "kind": "func",
+        "name": "run_sequential",
+        "parent": "DAGScheduler",
+        "line": 32,
+        "sig": "def run_sequential("
+      },
+      {
+        "kind": "func",
+        "name": "run_parallel",
+        "parent": "DAGScheduler",
+        "line": 97,
+        "sig": "def run_parallel("
+      },
+      {
+        "kind": "func",
+        "name": "execute_worker",
+        "parent": "DAGScheduler",
+        "line": 122,
+        "sig": "def execute_worker(task_def: TaskDefinition, prop: PatchProposal) -> TransactionResult:"
+      }
+    ]
+  },
+  "task/schema.py": {
+    "lines": 74,
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "RiskLevel",
+        "parent": null,
+        "line": 6,
+        "sig": "class RiskLevel(str, Enum):"
+      },
+      {
+        "kind": "class",
+        "name": "TaskDefinition",
+        "parent": null,
+        "line": 12,
+        "sig": "class TaskDefinition(BaseModel):"
+      },
+      {
+        "kind": "func",
+        "name": "validate_non_empty_string",
+        "parent": "TaskDefinition",
+        "line": 24,
+        "sig": "def validate_non_empty_string(cls, v: str) -> str:"
+      },
+      {
+        "kind": "class",
+        "name": "PatchHunk",
+        "parent": null,
+        "line": 30,
+        "sig": "class PatchHunk(BaseModel):"
+      },
+      {
+        "kind": "func",
+        "name": "validate_hunk_semantics",
+        "parent": "PatchHunk",
+        "line": 35,
+        "sig": "def validate_hunk_semantics(self) -> \"PatchHunk\":"
+      },
+      {
+        "kind": "class",
+        "name": "FilePatch",
+        "parent": null,
+        "line": 43,
+        "sig": "class FilePatch(BaseModel):"
+      },
+      {
+        "kind": "func",
+        "name": "validate_file_path",
+        "parent": "FilePatch",
+        "line": 49,
+        "sig": "def validate_file_path(cls, v: str) -> str:"
+      },
+      {
+        "kind": "class",
+        "name": "PatchProposal",
+        "parent": null,
+        "line": 55,
+        "sig": "class PatchProposal(BaseModel):"
+      },
+      {
+        "kind": "class",
+        "name": "TransactionResult",
+        "parent": null,
+        "line": 61,
+        "sig": "class TransactionResult(BaseModel):"
+      }
+    ]
+  },
+  "taskqueue/__init__.py": {
+    "lines": 0,
+    "symbols": []
+  },
+  "taskqueue/cloud_worker.py": {
+    "lines": 133,
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "CloudTaskItem",
+        "parent": null,
+        "line": 17,
+        "sig": "class CloudTaskItem(BaseModel):"
+      },
+      {
+        "kind": "class",
+        "name": "CloudQueueWorker",
+        "parent": null,
+        "line": 28,
+        "sig": "class CloudQueueWorker:"
+      },
+      {
+        "kind": "func",
+        "name": "__init__",
+        "parent": "CloudQueueWorker",
+        "line": 29,
+        "sig": "def __init__("
+      },
+      {
+        "kind": "func",
+        "name": "fetch_pending_tasks",
+        "parent": "CloudQueueWorker",
+        "line": 42,
+        "sig": "def fetch_pending_tasks(self) -> List[CloudTaskItem]:"
+      },
+      {
+        "kind": "func",
+        "name": "update_task_status",
+        "parent": "CloudQueueWorker",
+        "line": 55,
+        "sig": "def update_task_status("
+      },
+      {
+        "kind": "func",
+        "name": "process_single_task",
+        "parent": "CloudQueueWorker",
+        "line": 76,
+        "sig": "def process_single_task(self, cloud_task: CloudTaskItem) -> bool:"
+      },
+      {
+        "kind": "func",
+        "name": "run_worker_loop",
+        "parent": "CloudQueueWorker",
+        "line": 116,
+        "sig": "def run_worker_loop(self, max_iterations: Optional[int] = None):"
+      }
+    ]
+  },
+  "validation/__init__.py": {
+    "lines": 0,
+    "symbols": []
+  },
+  "validation/baseline.py": {
+    "lines": 182,
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "BaselineState",
+        "parent": null,
+        "line": 15,
+        "sig": "class BaselineState(BaseModel):"
+      },
+      {
+        "kind": "class",
+        "name": "BaselineManager",
+        "parent": null,
+        "line": 26,
+        "sig": "class BaselineManager:"
+      },
+      {
+        "kind": "func",
+        "name": "__init__",
+        "parent": "BaselineManager",
+        "line": 29,
+        "sig": "def __init__(self, enable_cache: bool = True):"
+      },
+      {
+        "kind": "func",
+        "name": "get_env_fingerprint",
+        "parent": "BaselineManager",
+        "line": 34,
+        "sig": "def get_env_fingerprint(cls) -> str:"
+      },
+      {
+        "kind": "func",
+        "name": "compute_config_fingerprint",
+        "parent": "BaselineManager",
+        "line": 46,
+        "sig": "def compute_config_fingerprint("
+      },
+      {
+        "kind": "func",
+        "name": "compute_cache_key",
+        "parent": "BaselineManager",
+        "line": 58,
+        "sig": "def compute_cache_key("
+      },
+      {
+        "kind": "func",
+        "name": "get_or_capture_baseline",
+        "parent": "BaselineManager",
+        "line": 67,
+        "sig": "def get_or_capture_baseline("
+      },
+      {
+        "kind": "func",
+        "name": "clear_cache",
+        "parent": "BaselineManager",
+        "line": 113,
+        "sig": "def clear_cache(self):"
+      },
+      {
+        "kind": "func",
+        "name": "invalidate",
+        "parent": "BaselineManager",
+        "line": 116,
+        "sig": "def invalidate(self, cache_key: str):"
+      },
+      {
+        "kind": "func",
+        "name": "compare_build",
+        "parent": "BaselineManager",
+        "line": 120,
+        "sig": "def compare_build("
+      },
+      {
+        "kind": "func",
+        "name": "compare_regression",
+        "parent": "BaselineManager",
+        "line": 147,
+        "sig": "def compare_regression("
+      },
+      {
+        "kind": "func",
+        "name": "compare_behavioral",
+        "parent": "BaselineManager",
+        "line": 164,
+        "sig": "def compare_behavioral("
+      }
+    ]
+  },
+  "validation/behavioral.py": {
+    "lines": 68,
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "BehavioralCheckResult",
+        "parent": null,
+        "line": 8,
+        "sig": "class BehavioralCheckResult(BaseModel):"
+      },
+      {
+        "kind": "class",
+        "name": "BaseBehavioralValidator",
+        "parent": null,
+        "line": 14,
+        "sig": "class BaseBehavioralValidator(ABC):"
+      },
+      {
+        "kind": "func",
+        "name": "validate_behavior",
+        "parent": "BaseBehavioralValidator",
+        "line": 17,
+        "sig": "def validate_behavior(self, repo_path: Path, task_id: str) -> BehavioralCheckResult:"
+      },
+      {
+        "kind": "class",
+        "name": "MockBehavioralValidator",
+        "parent": null,
+        "line": 21,
+        "sig": "class MockBehavioralValidator(BaseBehavioralValidator):"
+      },
+      {
+        "kind": "func",
+        "name": "__init__",
+        "parent": "MockBehavioralValidator",
+        "line": 22,
+        "sig": "def __init__(self, should_succeed: bool = True, failures: Optional[List[str]] = None):"
+      },
+      {
+        "kind": "func",
+        "name": "validate_behavior",
+        "parent": "MockBehavioralValidator",
+        "line": 26,
+        "sig": "def validate_behavior(self, repo_path: Path, task_id: str) -> BehavioralCheckResult:"
+      },
+      {
+        "kind": "class",
+        "name": "SubprocessBehavioralValidator",
+        "parent": null,
+        "line": 39,
+        "sig": "class SubprocessBehavioralValidator(BaseBehavioralValidator):"
+      },
+      {
+        "kind": "func",
+        "name": "__init__",
+        "parent": "SubprocessBehavioralValidator",
+        "line": 40,
+        "sig": "def __init__(self, cmd: List[str], timeout_seconds: Optional[int] = 30):"
+      },
+      {
+        "kind": "func",
+        "name": "validate_behavior",
+        "parent": "SubprocessBehavioralValidator",
+        "line": 44,
+        "sig": "def validate_behavior(self, repo_path: Path, task_id: str) -> BehavioralCheckResult:"
+      }
+    ]
+  },
+  "validation/pipeline.py": {
+    "lines": 175,
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "ValidationTier",
+        "parent": null,
+        "line": 17,
+        "sig": "class ValidationTier(str, Enum):"
+      },
+      {
+        "kind": "class",
+        "name": "ValidationReport",
+        "parent": null,
+        "line": 25,
+        "sig": "class ValidationReport(BaseModel):"
+      },
+      {
+        "kind": "class",
+        "name": "ValidationPipeline",
+        "parent": null,
+        "line": 33,
+        "sig": "class ValidationPipeline:"
+      },
+      {
+        "kind": "func",
+        "name": "__init__",
+        "parent": "ValidationPipeline",
+        "line": 34,
+        "sig": "def __init__("
+      },
+      {
+        "kind": "func",
+        "name": "validate_pre_apply",
+        "parent": "ValidationPipeline",
+        "line": 42,
+        "sig": "def validate_pre_apply("
+      },
+      {
+        "kind": "func",
+        "name": "validate_post_apply",
+        "parent": "ValidationPipeline",
+        "line": 77,
+        "sig": "def validate_post_apply("
+      }
+    ]
+  },
+  "validation/regression.py": {
+    "lines": 82,
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "RegressionCheckResult",
+        "parent": null,
+        "line": 9,
+        "sig": "class RegressionCheckResult(BaseModel):"
+      },
+      {
+        "kind": "class",
+        "name": "BaseRegressionValidator",
+        "parent": null,
+        "line": 15,
+        "sig": "class BaseRegressionValidator(ABC):"
+      },
+      {
+        "kind": "func",
+        "name": "validate_regression",
+        "parent": "BaseRegressionValidator",
+        "line": 18,
+        "sig": "def validate_regression(self, repo_path: Path) -> RegressionCheckResult:"
+      },
+      {
+        "kind": "class",
+        "name": "MockRegressionValidator",
+        "parent": null,
+        "line": 22,
+        "sig": "class MockRegressionValidator(BaseRegressionValidator):"
+      },
+      {
+        "kind": "func",
+        "name": "__init__",
+        "parent": "MockRegressionValidator",
+        "line": 23,
+        "sig": "def __init__(self, should_succeed: bool = True, broken_tests: Optional[List[str]] = None):"
+      },
+      {
+        "kind": "func",
+        "name": "validate_regression",
+        "parent": "MockRegressionValidator",
+        "line": 27,
+        "sig": "def validate_regression(self, repo_path: Path) -> RegressionCheckResult:"
+      },
+      {
+        "kind": "class",
+        "name": "SubprocessRegressionValidator",
+        "parent": null,
+        "line": 40,
+        "sig": "class SubprocessRegressionValidator(BaseRegressionValidator):"
+      },
+      {
+        "kind": "func",
+        "name": "__init__",
+        "parent": "SubprocessRegressionValidator",
+        "line": 41,
+        "sig": "def __init__(self, test_cmd: List[str], timeout_seconds: Optional[int] = 30):"
+      },
+      {
+        "kind": "func",
+        "name": "validate_regression",
+        "parent": "SubprocessRegressionValidator",
+        "line": 45,
+        "sig": "def validate_regression(self, repo_path: Path) -> RegressionCheckResult:"
+      },
+      {
+        "kind": "func",
+        "name": "_parse_broken_tests",
+        "parent": "SubprocessRegressionValidator",
+        "line": 68,
+        "sig": "def _parse_broken_tests(self, output: str) -> List[str]:"
+      }
+    ]
+  },
+  "validation/risk.py": {
+    "lines": 59,
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "RiskCheckResult",
+        "parent": null,
+        "line": 9,
+        "sig": "class RiskCheckResult(BaseModel):"
+      },
+      {
+        "kind": "class",
+        "name": "RiskValidator",
+        "parent": null,
+        "line": 14,
+        "sig": "class RiskValidator:"
+      },
+      {
+        "kind": "func",
+        "name": "validate_risk",
+        "parent": "RiskValidator",
+        "line": 26,
+        "sig": "def validate_risk("
+      }
+    ]
+  },
+  "validation/structural.py": {
+    "lines": 20,
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "StructuralValidator",
+        "parent": null,
+        "line": 8,
+        "sig": "class StructuralValidator:"
+      },
+      {
+        "kind": "func",
+        "name": "validate",
+        "parent": "StructuralValidator",
+        "line": 11,
+        "sig": "def validate("
+      }
+    ]
+  }
+}

@@ -13,6 +13,64 @@ class ScopeViolationError(Exception):
     pass
 
 
+# Anti-reward-hacking v2.3 Checkpoint 5: patterns identifying TEST files that
+# a Dev-agent task must never write or delete. Only QA-authored tasks
+# (role='qa', e.g. red-test authoring) may touch these.
+DEV_FORBIDDEN_TEST_FILE_PATTERNS = [
+    "*Test.cs",
+    "*Tests.cs",
+    "*Test.java",
+    "*Tests.java",
+    "*Test.ts",
+    "*Tests.ts",
+    "*Test.js",
+    "*Tests.js",
+    "test_*.py",
+    "*_test.py",
+    "*_test.go",
+    "*_test.dart",
+    "*.test.js",
+    "*.spec.js",
+    "*.test.ts",
+    "*.spec.ts",
+]
+
+# Directory patterns: anything INSIDE such a directory is a test file.
+DEV_FORBIDDEN_TEST_DIR_PATTERNS = [
+    "*Tests/*",
+    "*Test/*",
+    "tests/*",
+    "test/*",
+    "__tests__/*",
+]
+
+
+def _is_dev_forbidden_test_file(rel_file: str) -> Optional[str]:
+    """Returns the matched pattern if `rel_file` is a test file, else None.
+
+    Pure path-pattern matching (fnmatch over the basename, the full relative
+    path, and every path component), independent of filesystem state.
+    """
+    lowered = rel_file.lower()
+    components = lowered.split("/")
+    basename = components[-1] if components else lowered
+
+    for pattern in DEV_FORBIDDEN_TEST_FILE_PATTERNS:
+        if (
+            fnmatch.fnmatch(lowered, pattern.lower())
+            or fnmatch.fnmatch(basename, pattern.lower())
+        ):
+            return pattern
+    for pattern in DEV_FORBIDDEN_TEST_DIR_PATTERNS:
+        if fnmatch.fnmatch(lowered, pattern.lower()):
+            return pattern
+        # A file inside e.g. "MyTests/" matches component-wise too:
+        for comp in components[:-1]:
+            if fnmatch.fnmatch(comp, pattern.lower().rstrip("/*")):
+                return pattern
+    return None
+
+
 class ScopeGuard:
     SUSPICIOUS_PATTERNS = [
         (re.compile(r"#if\s+false", re.IGNORECASE), "Detected '#if false' code exclusion"),
@@ -90,6 +148,19 @@ class ScopeGuard:
                 ):
                     raise ScopeViolationError(
                         f"Forbidden file access detected: '{rel_file}' matches restricted pattern '{pattern}'"
+                    )
+
+            # 3.5 Anti-reward-hacking v2.3 Checkpoint 5: a Dev-agent task must
+            # never write/delete a test file (only QA tasks may, e.g. red-test
+            # authoring). This blocks the Dev agent from weakening the tests
+            # that will judge it.
+            if getattr(task, "role", "dev") != "qa":
+                matched = _is_dev_forbidden_test_file(rel_file)
+                if matched:
+                    raise ScopeViolationError(
+                        f"Forbidden test file access for Dev-agent task: '{rel_file}' "
+                        f"matches test file pattern '{matched}'. Test files may only "
+                        f"be written by QA-authored tasks (role='qa')."
                     )
 
             # 4. Allowed files check

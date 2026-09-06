@@ -1,0 +1,63 @@
+BẠN LÀ SENIOR CODEBASE AUDITOR.
+Nhiệm vụ: Đọc toàn bộ codebase dsh-pipeline hiện tại trong thư mục làm việc và báo cáo CHÍNH XÁC HIỆN TRẠNG để chuẩn bị cho kế hoạch "ARCHITECTURAL DIRECTIVE v2.3 CHỐNG REWARD HACKING".
+
+QUY TẮC BẮT BUỘC ĐỂ TRÁNH ẢO GIÁC (GROUNDING RULES):
+1. BÁO CÁO TRUNG THỰC: Chỉ báo cáo những gì THỰC SỰ ĐANG TỒN TẠI trên đĩa cứng.
+2. KHÔNG BIỆA FILE: Các file chưa tồn tại (ví dụ: safety/languages/csharp.py, validation/mutation.py) phải ghi rõ là "CHƯA TỒN TẠI".
+3. SỐ DÒNG CHÍNH XÁC: Mọi line_start, line_end phải khớp đúng số dòng thực tế của file, kèm trích dẫn ngắn (quote_code) làm bằng chứng.
+4. ĐỊNH DẠNG ĐẦU RA: Trả về DUY NHẤT một JSON Object hợp lệ (ngoặc kép chuẩn, không markdown bên ngoài).
+
+Hãy đọc và khảo sát các file sau:
+
+Phần 1: Chặng 1 - SPI Ngôn Ngữ & Khung Validation
+- Đọc safety/ast_guard.py: Liệt kê các class, hàm, biến đang dính cứng C# (CSharpSymbol, TAUTOLOGICAL_ASSERT_PATTERNS, _get_enclosing_type, _extract_symbols, _extract_assert_predicates, _check_early_return_and_stubs, validate_csharp_transition) kèm số dòng và trích dẫn.
+- Đọc validation/pipeline.py: Liệt kê các giá trị ValidationTier hiện có, các bước trong validate_post_apply (số dòng từng bước), xác định dòng chính xác giữa T2_BEHAVIORAL và T3_REGRESSION.
+
+Phần 2: Chặng 2 Phase A - Mutation, Holdout, Scope Guard, Context Isolation
+- Đọc task/schema.py: Các trường hiện có của TaskDefinition (xác nhận xem có holdout_test_code chưa).
+- Đọc orchestrator/planner.py: Hàm plan() đang sinh task với schema nào, prompt yêu cầu test gì.
+- Đọc safety/policy.py và safety/scope_guard.py: Logic kiểm tra allowed_files / write permissions hiện tại (có cấm Dev ghi file *Test.cs chưa).
+- Đọc context/builder.py: Các hàm build context cho Dev (build_prompt, _format_file_snippets), nơi chèn test code hoặc log lỗi.
+- Đọc core/runtime.py: Hàm execute_task và validate_post_apply được gọi ở đâu.
+
+Phần 3: Chặng 2 Phase B - PurityGuard & Tautology Check
+- Đọc safety/ast_guard.py: Hàm _extract_assert_predicates kiểm tra tautology kiểu gì (1 tham số hay 2 tham số, có kiểm tra norm(a)==norm(b) chưa). Trong ast_guard.py hiện có kiểm tra purity I/O hoặc static mutable chưa.
+
+Phần 4: Chặng 2 Phase C - Prompt Templates
+- Đọc core/runtime.py: DSHRuntime.SYSTEM_PROMPT (Dev prompt hiện tại có PACT / Precondition guard chưa).
+- Đọc orchestrator/planner.py: Prompt QA planner (có yêu cầu PBT Native Generative Loop 100 iter chưa).
+
+Phần 5: Chặng 2 Phase D - Review & Metamorphic Check
+- Đọc orchestrator/coordinator.py: Hàm _review_task() (cơ chế review hiện tại gọi model nào, có Security Prover riêng biệt khác họ Dev chưa, có metamorphic check chưa).
+
+Phần 6: Chặng 2 Phase E - Sandbox Isolation
+- Đọc build/sandbox.py: Tất cả các vị trí đang dùng os.environ hoặc sao chép biến môi trường (os.environ.copy).
+
+Xuất JSON theo cấu trúc:
+{
+  "chặng_1_spi_and_validation": {
+    "ast_guard_csharp_coupling": [...],
+    "validation_pipeline_current_state": {...}
+  },
+  "chặng_2_phase_a_isolation_and_holdout": {
+    "task_schema_status": {...},
+    "planner_status": {...},
+    "scope_guard_policy_status": {...},
+    "context_builder_status": {...},
+    "runtime_pipeline_hook_status": {...}
+  },
+  "chặng_2_phase_b_purity_and_assert": {
+    "tautology_check_current": {...},
+    "purity_check_current": {...}
+  },
+  "chặng_2_phase_c_prompts": {
+    "dev_system_prompt_status": {...},
+    "qa_planner_prompt_status": {...}
+  },
+  "chặng_2_phase_d_review": {
+    "review_task_status": {...}
+  },
+  "chặng_2_phase_e_sandbox": {
+    "sandbox_environ_usages": [...]
+  }
+}

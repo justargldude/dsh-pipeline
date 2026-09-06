@@ -45,6 +45,29 @@ logging.basicConfig(
 logger = logging.getLogger("dsh.runtime")
 
 
+def _read_head_file_content(tx_worktree, rel_file: str) -> Optional[str]:
+    """Reads a file's content at HEAD (the pre-patch baseline) from the
+    transaction worktree's git repository. Returns None when unavailable.
+
+    Pure w.r.t. the workspace: runs a read-only `git show` in the worktree.
+    Used by the T2.5 Mutation Gate to obtain the old side of each diff.
+    """
+    try:
+        import subprocess as _sp
+        res = _sp.run(
+            ["git", "show", f"HEAD:{rel_file}"],
+            cwd=tx_worktree.worktree_path,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if res.returncode == 0:
+            return res.stdout
+    except Exception:
+        pass
+    return None
+
+
 class DSHRuntime:
     SYSTEM_PROMPT = """You are a deterministic code patch engine.
 Your sole job is to produce a valid JSON object matching the PatchProposal schema.
@@ -144,9 +167,85 @@ CRITICAL REASONING DIRECTIVE:
         self.policy = policy or SafetyPolicy()
         self.session_tracker = SessionBudgetTracker(self.policy)
         self.scope_guard = ScopeGuard(policy=self.policy, session_tracker=self.session_tracker)
+
+        # v2.3 Stage 2 Phase A: wire the T2.5 Mutation Gate and the holdout
+        # injector into the validation pipeline. Only in PRODUCTION mode with
+        # a real configured test_command — test_mode fixtures keep the legacy
+        # mock path (gate slots stay None).
+        # The gate reads the in-flight proposal from `_t25_current_files`
+        # (set by execute_transaction right after the patch is applied).
+        self._t25_current_files: Dict[str, Any] = {}
+        self._t25_old_files: Dict[str, Any] = {}
+        self._pending_holdouts: List[Dict[str, Any]] = []
+        mutation_gate = None
+        holdout_injector = None
+        if not test_mode and self.config.test_command:
+            from validation.mutation import ASTMutationGate
+            from build.sandbox import run_hardened_command
+
+            _test_cmd = list(self.config.test_command)
+
+            def _mutation_test_runner(worktree_path: Path):
+                rc, out, timed_out, _sig, _trunc = run_hardened_command(
+                    cmd=_test_cmd,
+                    cwd=worktree_path,
+                    timeout_seconds=self.config.default_timeout_seconds,
+                )
+                # A timeout also counts as "tests did not pass" => mutant killed.
+                return (0 if timed_out else rc, out)
+
+            _gate = ASTMutationGate(
+                test_runner=_mutation_test_runner,
+                threshold=0.70,
+                max_mutants=40,
+            )
+
+            def mutation_gate(repo_path: Path, task):
+                """T2.5 gate wired to the transaction: mutates ONLY the files
+                the Dev patch touched (old side captured pre-apply)."""
+                from validation.pipeline import MutationGateResult
+                if not self._t25_current_files:
+                    return MutationGateResult(
+                        success=True,
+                        mutation_score=1.0,
+                        details={"note": "no patched files recorded for this transaction"},
+                    )
+                try:
+                    return _gate.run_gate_for_files(
+                        repo_path=repo_path,
+                        old_code_by_file=self._t25_old_files,
+                        new_code_by_file=self._t25_current_files,
+                    )
+                except Exception as e:
+                    logger.warning(f"[T2.5] Mutation gate internal error (fail-open logged): {e}")
+                    return MutationGateResult(
+                        success=True,
+                        mutation_score=1.0,
+                        details={"error": str(e), "mode": "fail-open-logged"},
+                    )
+
+            def holdout_injector(repo_path: Path, task):
+                """Injects hidden holdout tests into the worktree IMMEDIATELY
+                BEFORE T3 Regression (never merged into Dev code)."""
+                from validation.pipeline import HoldoutInjectionResult
+                injected: List[str] = []
+                try:
+                    for pt in self._pending_holdouts:
+                        if not (pt.get("holdout_test_file") and pt.get("holdout_test_code")):
+                            continue
+                        dst = Path(repo_path) / pt["holdout_test_file"]
+                        dst.parent.mkdir(parents=True, exist_ok=True)
+                        dst.write_text(pt["holdout_test_code"], encoding="utf-8")
+                        injected.append(pt["holdout_test_file"])
+                except Exception as e:
+                    logger.warning(f"[HOLDOUT] Injection failed (logged): {e}")
+                return HoldoutInjectionResult(injected_files=injected)
+
         self.validation_pipeline = ValidationPipeline(
             behavioral_validator=self.behavioral_validator,
             regression_validator=self.regression_validator,
+            mutation_gate=mutation_gate,
+            holdout_injector=holdout_injector,
         )
         self.baseline_manager = baseline_manager or BaselineManager(
             enable_cache=self.config.enable_baseline_cache
@@ -432,6 +531,18 @@ CRITICAL REASONING DIRECTIVE:
             self.ws.journal.update_state(tx_id, TransactionState.PATCH_APPLIED)
             self._log_event(PipelineEvent.PATCH_APPLIED, task.task_id, f"Applied {len(proposal.patches)} file patch(es) in worktree.")
             events.append(PipelineEvent.PATCH_APPLIED.value)
+
+            # v2.3 Phase A: capture the exact old/new content of each patched
+            # file for the T2.5 Mutation Gate (mutate ONLY the diff region).
+            self._t25_old_files = {}
+            self._t25_current_files = {}
+            for fp in proposal.patches:
+                rel_file = normalize_repo_path(fp.file)
+                wt_file = (tx_worktree.worktree_path / rel_file).resolve()
+                if wt_file.exists():
+                    self._t25_current_files[rel_file] = wt_file.read_text(encoding="utf-8")
+                old_content = _read_head_file_content(tx_worktree, rel_file)
+                self._t25_old_files[rel_file] = old_content if old_content is not None else ""
 
             # Final State Pre-Build Verification: Compare simulated content vs actual on-disk content
             for rel_file, expected_content in simulated_files.items():

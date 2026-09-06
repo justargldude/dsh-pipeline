@@ -1,6 +1,16 @@
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, Field, field_validator, model_validator
+
+
+class TaskRole(str, Enum):
+    """Who authored this task: the Dev agent (default) or the QA agent.
+
+    Anti-reward-hacking v2.3 Checkpoint 5: only QA-authored tasks may touch
+    test files; Dev tasks must never write/delete test files.
+    """
+    DEV = "dev"
+    QA = "qa"
 
 
 class RiskLevel(str, Enum):
@@ -18,6 +28,7 @@ class TaskDefinition(BaseModel):
     max_lines_deleted: int = Field(default=20, ge=0, le=50000)
     target_symbols: List[str] = Field(default_factory=list)
     risk: RiskLevel = RiskLevel.MEDIUM
+    role: TaskRole = TaskRole.DEV
 
     @field_validator("task_id", "title")
     @classmethod

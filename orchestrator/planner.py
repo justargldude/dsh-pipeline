@@ -20,6 +20,12 @@ class PlannedTask(BaseModel):
     target_symbols: List[str] = Field(default_factory=list)
     test_file: Optional[str] = None
     test_code: Optional[str] = None
+    # Anti-reward-hacking v2.3 Checkpoint 1 (Holdout Testing): QA emits TWO
+    # exams. `test_code` is the visible red test the Dev agent may read;
+    # `holdout_test_code` is the hidden exam, filtered out of Dev context and
+    # injected into the worktree only immediately before T3 Regression.
+    holdout_test_file: Optional[str] = None
+    holdout_test_code: Optional[str] = None
     test_cmd: Optional[str] = None
     build_cmd: Optional[str] = None
     max_lines_added: int = 300
@@ -158,9 +164,19 @@ Goal: {user_goal}
    - description: what needs to be evaluated/fixed
    - allowed_files: list of target files that need modifications (MUST be exact relative paths from the file list above)
    - target_symbols: list of functions, classes, or symbols to modify
-   - test_file: path to a test file that verifies the fix/feature (e.g. "tests/test_fix1.js" or "tests/test_fix1.py")
-   - test_code: full runnable test code that initially FAILS on current code and PASSES after the fix.
-   - test_cmd: exact shell command to run this test (e.g. "{profile['default_test_cmd'] or 'npm test'}")
+   - test_file: path to the VISIBLE test file the Dev agent may read (e.g. "tests/test_fix1.js")
+   - test_code: full runnable VISIBLE test code that initially FAILS on current code and PASSES after the fix.
+   - holdout_test_file: path to a SEPARATE HIDDEN holdout test file (e.g. "tests/holdout_task_001.js"). The Dev agent will NEVER see this file or its content; it is injected only right before final regression validation.
+   - holdout_test_code: full runnable HOLDOUT test code — an independent second exam that must also fail before the fix and pass after it. It MUST test the same contracts from a DIFFERENT angle (different concrete inputs, edge cases like negative numbers, zero, overflow, empty/null inputs) — not a copy of the visible test with renamed variables. The FIRST LINE of holdout_test_code MUST be the marker comment: DSH_HOLDOUT (this marker lets the pipeline scrub any accidental quotes of this content from Dev-facing contexts; it is not part of the test logic).
+   - test_cmd: exact shell command to run ALL tests of this task (e.g. "{profile['default_test_cmd'] or 'npm test'}")
+3. Test-writing requirements (BOTH visible and holdout tests):
+   - PRIORITY: if the target repo's dependency graph already contains a property-based-testing library (CsCheck, FsCheck, Hypothesis, fast-check...), use it. Otherwise use a NATIVE GENERATIVE LOOP: a plain for-loop of 100 iterations generating pseudo-random inputs from a seeded generator (e.g. `new Random(42)` / `Random(seed)` with a FIXED literal seed, or a small deterministic LCG) and asserting the mathematical invariant inside the loop. Zero external dependencies — the build must not break on repos without PBT libraries.
+   - Each task must include at least one property-based invariant test among its visible or holdout tests: a Roundtrip property (f(g(x)) == x where applicable), an Idempotence property (f(f(x)) == f(x) where applicable), or a Non-negative/monotonic invariant appropriate to the domain.
+   - Cover contract violations explicitly: negative numbers, null/empty inputs, and overflow must appear as concrete test cases (Design by Contract: precondition guard clauses must exist).
+4. CRITICAL anti-cheat constraints:
+   - The Dev agent cannot see the holdout test. Never reference holdout content inside test_code, description, or allowed_files.
+   - Never write a tautological assertion (comparing an expression to itself, Assert(true), x == x).
+   - Never weaken or delete an existing test to make a task pass.
 
 Respond ONLY with valid JSON matching this schema:
 {{
@@ -176,7 +192,9 @@ Respond ONLY with valid JSON matching this schema:
       "allowed_files": ["lib/index.js"],
       "target_symbols": ["myFunction"],
       "test_file": "tests/test_task_001.js",
-      "test_code": "// Runnable test verifying fix",
+      "test_code": "// Runnable VISIBLE test verifying fix",
+      "holdout_test_file": "tests/holdout_task_001.js",
+      "holdout_test_code": "// Runnable HIDDEN holdout test (independent second exam)",
       "test_cmd": "node --test tests/test_task_001.js",
       "max_lines_added": 300,
       "max_lines_deleted": 150,
