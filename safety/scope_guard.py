@@ -1,3 +1,4 @@
+import difflib
 import fnmatch
 import re
 from pathlib import Path
@@ -32,10 +33,14 @@ class ScopeGuard:
         self,
         task: TaskDefinition,
         proposal: PatchProposal,
-        repo_path: Path,
+        repo_path: Optional[Path] = None,
         reservation_id: Optional[str] = None,
+        repo_root: Optional[Path] = None,
     ):
-        repo_root = repo_path.resolve()
+        root = repo_root if repo_root is not None else repo_path
+        if root is None:
+            raise ValueError("repo_path or repo_root must be provided")
+        repo_root = root.resolve()
 
         total_added = 0
         total_deleted = 0
@@ -113,12 +118,6 @@ class ScopeGuard:
             base_content = orig_content if not is_new else None
 
             for hunk in file_patch.hunks:
-                old_lines = hunk.old_text.splitlines() if hunk.old_text else []
-                new_lines = hunk.new_text.splitlines() if hunk.new_text else []
-
-                total_deleted += len(old_lines)
-                total_added += len(new_lines)
-
                 # Scan new_text for anti-bypass patterns
                 for pattern, msg in self.SUSPICIOUS_PATTERNS:
                     if pattern.search(hunk.new_text):
@@ -131,6 +130,16 @@ class ScopeGuard:
                 is_new_file=is_new,
                 file_path=rel_file,
             )
+
+            # Bug B: Count actual lines added and deleted from unified diff
+            orig_lines = orig_content.splitlines()
+            sim_lines = simulated_content.splitlines()
+            diff_lines = list(difflib.unified_diff(orig_lines, sim_lines, lineterm=""))
+            for line in diff_lines[2:]:
+                if line.startswith("-"):
+                    total_deleted += 1
+                elif line.startswith("+"):
+                    total_added += 1
 
             # 7. AST Guard for C# files (with target_symbols boundary enforcement)
             if rel_file.endswith(".cs"):
@@ -163,5 +172,7 @@ class ScopeGuard:
                     self.session_tracker.check_and_add(total_added, total_deleted)
             except ValueError as e:
                 raise ScopeViolationError(str(e))
+
+    validate_pre_apply = validate
 
 

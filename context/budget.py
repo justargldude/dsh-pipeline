@@ -29,8 +29,8 @@ class TokenBudgetManager:
     RESERVED_SYSTEM_PROMPT_TOKENS: int = 200
     RESERVED_OUTPUT_TOKENS: int = 800
 
-    # Temporarily set to unlimited mode per user requirement (bypasses token caps for heavy injection)
-    UNLIMITED_MODE: bool = True
+    # Default to False to enforce configured token limits unless overridden via env or complexity
+    UNLIMITED_MODE: bool = False
 
     @classmethod
     def get_budget(cls, complexity: ContextComplexity = ContextComplexity.NORMAL) -> int:
