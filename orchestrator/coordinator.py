@@ -99,6 +99,20 @@ class AutonomousCoordinator:
                 logger.warning(f"[COORDINATOR] Red-test worktree propagation failed: {e}")
         return _callback
 
+    def _holdout_test_worktree_callback(self, task: PlannedTask):
+        """Returns a callback that injects holdout tests right before regression validation."""
+        def _callback(worktree_path, task_def=None) -> None:
+            try:
+                h_file = task.holdout_test_file or (task_def.holdout_test_file if task_def else None)
+                h_code = task.holdout_test_code or (task_def.holdout_test_code if task_def else None)
+                if h_file and h_code:
+                    dst = Path(worktree_path) / h_file
+                    dst.parent.mkdir(parents=True, exist_ok=True)
+                    dst.write_text(h_code, encoding="utf-8")
+            except Exception as e:
+                logger.warning(f"[COORDINATOR] Holdout-test injection failed: {e}")
+        return _callback
+
     def _untracked_allowance_for_manifest(self) -> Optional[List[str]]:
         """Untracked paths the manifest dir occupies (F-01)."""
         run_dir = getattr(self, "_run_dir", None)
@@ -332,9 +346,13 @@ Respond ONLY with a valid JSON object (no prose, no markdown fences) matching ex
             except Exception:
                 pass
 
-            # Ensure test file is allowed in untracked paths if created
-            allowed_untracked = [task.test_file] if (test_created and task.test_file) else None
-            runtime.allowed_untracked_paths = allowed_untracked
+            # Ensure test files are allowed in untracked paths if created
+            allowed_untracked_items = []
+            if test_created and task.test_file:
+                allowed_untracked_items.append(task.test_file)
+            if task.holdout_test_file:
+                allowed_untracked_items.append(task.holdout_test_file)
+            runtime.allowed_untracked_paths = allowed_untracked_items if allowed_untracked_items else None
 
             task_def = TaskDefinition(
                 task_id=task.task_id,
@@ -344,6 +362,9 @@ Respond ONLY with a valid JSON object (no prose, no markdown fences) matching ex
                 max_lines_added=task.max_lines_added,
                 max_lines_deleted=task.max_lines_deleted,
                 risk=risk_val,
+                visible_test_code=task.visible_test_code or task.test_code,
+                holdout_test_code=task.holdout_test_code,
+                holdout_test_file=task.holdout_test_file,
             )
 
             # Execute via Recovery Loop (Dev Subagent)
@@ -351,6 +372,7 @@ Respond ONLY with a valid JSON object (no prose, no markdown fences) matching ex
             # F-02: wire red-test propagation into every transaction worktree
             # via the runtime's on_worktree_created callback.
             runtime.on_worktree_created = self._red_test_worktree_callback(task)
+            runtime.on_pre_regression = self._holdout_test_worktree_callback(task)
             if self._run_dir is not None:
                 manifest_allowance = self._untracked_allowance_for_manifest()
                 if manifest_allowance:

@@ -1,4 +1,6 @@
+import fnmatch
 import json
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from pydantic import BaseModel, Field
 
@@ -70,7 +72,30 @@ class ContextBuilder:
         # Calculate max tokens reserved for target source files
         reserved_source_budget = max(400, available_budget - task_item.token_cost - 300)
 
+        FENCE_MAP = {
+            ".cs": "csharp",
+            ".py": "python",
+            ".js": "javascript",
+            ".jsx": "javascript",
+            ".ts": "typescript",
+            ".tsx": "typescript",
+            ".cpp": "cpp",
+            ".cc": "cpp",
+            ".c": "c",
+            ".h": "cpp",
+            ".hpp": "cpp",
+        }
+
+        # Anti-reward-hacking: Never leak holdout tests to the Dev Agent
+        holdout_names = {task.holdout_test_file} if task.holdout_test_file else set()
+
         for fname, snippet in file_snippets.items():
+            if fname in holdout_names or any(fnmatch.fnmatch(fname, pat) for pat in ["*holdout*", "*secret_test*"]):
+                continue
+
+            ext = Path(fname).suffix.lower()
+            lang_fence = FENCE_MAP.get(ext, "csharp")
+
             ext_res: ExtractedSourceResult = self.symbol_extractor.extract_relevant_source(
                 source_code=snippet,
                 target_symbols=task.target_symbols if task.target_symbols else None,
@@ -84,9 +109,21 @@ class ContextBuilder:
             source_item = ContextItem(
                 priority=PriorityLevel.TARGET_SOURCE,
                 category=f"TARGET_SOURCE:{fname}",
-                content=f"### [SOURCE FILE: {fname}]\n```csharp\n{ext_res.extracted_code}\n```\n",
+                content=f"### [SOURCE FILE: {fname}]\n```{lang_fence}\n{ext_res.extracted_code}\n```\n",
             )
             mandatory_items.append(source_item)
+
+        # Include Visible Test Specification if provided (without holdouts)
+        if task.visible_test_code:
+            ext = Path(task.holdout_test_file or "test.cs").suffix.lower()
+            spec_fence = FENCE_MAP.get(ext, "csharp")
+            mandatory_items.append(
+                ContextItem(
+                    priority=PriorityLevel.TASK_DEFINITION,
+                    category="TEST_SPECIFICATION",
+                    content=f"### [TEST SPECIFICATION (BEHAVIORAL REQUIREMENTS)]\n```{spec_fence}\n{task.visible_test_code}\n```\n",
+                )
+            )
 
         # Check if mandatory items exceed available budget
         mandatory_cost = sum(it.token_cost for it in mandatory_items)

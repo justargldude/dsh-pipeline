@@ -48,6 +48,19 @@ class ScopeGuard:
         # Pre-normalize allowed files
         normalized_allowed = [normalize_repo_path(f) for f in task.allowed_files]
 
+        # SpecBench / EvilGenie: Test files can never be targeted by Dev agent
+        if self.policy.forbid_dev_test_edits:
+            for f in normalized_allowed:
+                for pattern in self.policy.forbidden_test_patterns:
+                    if (
+                        fnmatch.fnmatch(f, pattern)
+                        or fnmatch.fnmatch(Path(f).name, pattern)
+                        or any(fnmatch.fnmatch(p, pattern) for p in f.split("/"))
+                    ):
+                        raise ScopeViolationError(
+                            f"Test file in allowed_files forbidden for Dev agent: '{f}' matches test pattern '{pattern}'"
+                        )
+
         for file_patch in proposal.patches:
             try:
                 rel_file = normalize_repo_path(file_patch.file)
@@ -91,6 +104,18 @@ class ScopeGuard:
                     raise ScopeViolationError(
                         f"Forbidden file access detected: '{rel_file}' matches restricted pattern '{pattern}'"
                     )
+
+            # Test file lockdown check (SpecBench / EvilGenie)
+            if self.policy.forbid_dev_test_edits:
+                for pattern in self.policy.forbidden_test_patterns:
+                    if (
+                        fnmatch.fnmatch(rel_file, pattern)
+                        or fnmatch.fnmatch(target_path.name, pattern)
+                        or any(fnmatch.fnmatch(p, pattern) for p in rel_file.split("/"))
+                    ):
+                        raise ScopeViolationError(
+                            f"Test file modification forbidden for Dev agent: '{rel_file}' matches test pattern '{pattern}'"
+                        )
 
             # 4. Allowed files check
             if rel_file not in normalized_allowed:
@@ -141,8 +166,35 @@ class ScopeGuard:
                 elif line.startswith("+"):
                     total_added += 1
 
-            # 7. AST Guard for C# files (with target_symbols boundary enforcement)
-            if rel_file.endswith(".cs"):
+            # 7. Language Driver AST validation (with target_symbols boundary enforcement)
+            from safety.languages import get_driver_for_file
+            driver = get_driver_for_file(rel_file)
+            if driver:
+                try:
+                    driver.validate_transition(
+                        old_code=orig_content,
+                        new_code=simulated_content,
+                        file_path=rel_file,
+                        target_symbols=task.target_symbols,
+                    )
+                except ASTViolationError as e:
+                    raise ScopeViolationError(f"AST Guard rejection: {str(e)}")
+
+                # FCIS Purity Enforcement: files in Core/ or Domain/ must remain Pure
+                rel_lower = rel_file.lower()
+                if (
+                    "/core/" in rel_lower
+                    or "/domain/" in rel_lower
+                    or rel_lower.startswith("core/")
+                    or rel_lower.startswith("domain/")
+                    or "functional_core" in rel_lower
+                ):
+                    purity_rep = driver.check_purity(simulated_content, file_path=rel_file)
+                    if not purity_rep.is_pure:
+                        raise ScopeViolationError(
+                            f"FCIS Purity violation in '{rel_file}': " + "; ".join(purity_rep.violations)
+                        )
+            elif rel_file.endswith(".cs"):
                 try:
                     self.ast_guard.validate_csharp_transition(
                         orig_content,

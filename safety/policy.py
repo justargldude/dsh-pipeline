@@ -3,6 +3,27 @@ from typing import Dict, List, Optional, Set
 from pydantic import BaseModel, Field
 
 
+FORBIDDEN_DEV_TEST_PATTERNS: List[str] = [
+    "*Test*.cs",
+    "*Tests*.cs",
+    "test_*.py",
+    "*_test.py",
+    "*.test.js",
+    "*.spec.js",
+    "*.test.ts",
+    "*.spec.ts",
+    "*.test.jsx",
+    "*.test.tsx",
+    "*_test.cpp",
+    "*_test.cc",
+    "*_test.c",
+    "tests/*",
+    "test/*",
+    "*/tests/*",
+    "*/test/*",
+]
+
+
 class SafetyPolicy(BaseModel):
     # Task level defaults
     default_max_lines_added: int = Field(default=100, ge=0)
@@ -15,6 +36,12 @@ class SafetyPolicy(BaseModel):
 
     # Allowed capabilities (capability-based security)
     allowed_capabilities: Set[str] = Field(default_factory=set)
+
+    # Anti-reward-hacking test file lockdown (SpecBench / EvilGenie)
+    forbid_dev_test_edits: bool = Field(default=True)
+    forbidden_test_patterns: List[str] = Field(
+        default_factory=lambda: list(FORBIDDEN_DEV_TEST_PATTERNS)
+    )
 
     # Forbidden file patterns (sensitive configs, keys, VCS)
     forbidden_file_patterns: List[str] = Field(

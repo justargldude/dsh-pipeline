@@ -69,6 +69,10 @@ CRITICAL REASONING DIRECTIVE:
 - Historical markdown files, notes, or diagnostic logs are past observations at specific timestamps - NOT immutable business rules.
 - Never assume an endpoint or external service is broken from old reports; always verify liveness with real-time execution before concluding.
 - If an explanation claims a wait or a block, treat it as an unverified hypothesis and test it from first principles.
+
+FUNCTIONAL CORE, IMPERATIVE SHELL (FCIS) DIRECTIVE:
+- Code under Core/ or Domain/ MUST BE PURE: no file/network I/O, no unseeded random, no system clock calls (DateTime.Now, Date.now, time.time).
+- Side-effects belong exclusively in the Imperative Shell (Shell/, Infrastructure/, Adapters/). Any impure call in Core is mechanically rejected by the AST Guard.
 """
 
     # QA round-2 F-02: optional callback invoked with the worktree path right
@@ -77,6 +81,7 @@ CRITICAL REASONING DIRECTIVE:
     # transaction worktree. Declared class-level so feature presence is
     # introspectable via hasattr(DSHRuntime, "on_worktree_created").
     on_worktree_created = None
+    on_pre_regression = None
 
     def __init__(
         self,
@@ -452,6 +457,7 @@ CRITICAL REASONING DIRECTIVE:
                 repo_path=tx_worktree.worktree_path,
                 build_runner=self.build_runner,
                 baseline=baseline,
+                on_pre_regression=self.on_pre_regression,
             )
             if not post_report.success:
                 self.session_tracker.release(tx_id)

@@ -18,6 +18,7 @@ class ValidationTier(str, Enum):
     T0_STRUCTURAL = "T0_STRUCTURAL"
     T1_BUILD = "T1_BUILD"
     T2_BEHAVIORAL = "T2_BEHAVIORAL"
+    T2_5_MUTATION = "T2_5_MUTATION"
     T3_REGRESSION = "T3_REGRESSION"
     T4_RISK = "T4_RISK"
 
@@ -35,9 +36,11 @@ class ValidationPipeline:
         self,
         behavioral_validator: Optional[BaseBehavioralValidator] = None,
         regression_validator: Optional[BaseRegressionValidator] = None,
+        mutation_gate: Optional[Any] = None,
     ):
         self.behavioral_validator = behavioral_validator
         self.regression_validator = regression_validator
+        self.mutation_gate = mutation_gate
 
     def validate_pre_apply(
         self,
@@ -80,6 +83,7 @@ class ValidationPipeline:
         repo_path: Path,
         build_runner: BaseBuildRunner,
         baseline: Optional[BaselineState] = None,
+        on_pre_regression: Optional[Any] = None,
     ) -> ValidationReport:
         """Runs T1 Build, T2 Behavioral, T3 Regression AFTER applying patch, comparing against baseline."""
         # 3. T1 - Build
@@ -142,6 +146,50 @@ class ValidationPipeline:
                     failure_type=FailureType.BEHAVIORAL,
                     error_message=f"[T2 Behavioral Failure] " + "; ".join(beh_res.failures),
                     details={"failures": beh_res.failures},
+                )
+
+        # 4.5. T2.5 - Mutation Testing Gate (Evaluates whether tests are vacuous)
+        if self.mutation_gate is not None:
+            mut_report = self.mutation_gate.evaluate_mutation(
+                repo_path=repo_path,
+                task=task,
+            )
+            if not mut_report.success:
+                return ValidationReport(
+                    success=False,
+                    failed_tier=ValidationTier.T2_5_MUTATION,
+                    failure_type=FailureType.BEHAVIORAL,
+                    error_message=f"[T2.5 Mutation Gate Failure] {mut_report.error_message}",
+                    details={
+                        "score": mut_report.score,
+                        "threshold": mut_report.threshold,
+                        "killed": mut_report.killed_mutants,
+                        "total": mut_report.total_mutants,
+                    },
+                )
+
+        # Pre-T3 Holdout Injection (SpecBench / EvilGenie verification)
+        if on_pre_regression is not None:
+            try:
+                on_pre_regression(repo_path, task)
+            except Exception as e:
+                return ValidationReport(
+                    success=False,
+                    failed_tier=ValidationTier.T3_REGRESSION,
+                    failure_type=FailureType.REGRESSION,
+                    error_message=f"[Holdout Injection Failure] {e}",
+                )
+        elif task.holdout_test_code and task.holdout_test_file:
+            try:
+                dst = repo_path / task.holdout_test_file
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                dst.write_text(task.holdout_test_code, encoding="utf-8")
+            except Exception as e:
+                return ValidationReport(
+                    success=False,
+                    failed_tier=ValidationTier.T3_REGRESSION,
+                    failure_type=FailureType.REGRESSION,
+                    error_message=f"[Holdout Injection Failure] {e}",
                 )
 
         # 5. T3 - Regression (if validator configured)

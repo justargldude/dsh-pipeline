@@ -18,6 +18,9 @@ class TaskDefinition(BaseModel):
     max_lines_deleted: int = Field(default=20, ge=0, le=50000)
     target_symbols: List[str] = Field(default_factory=list)
     risk: RiskLevel = RiskLevel.MEDIUM
+    visible_test_code: Optional[str] = None
+    holdout_test_code: Optional[str] = None
+    holdout_test_file: Optional[str] = None
 
     @field_validator("task_id", "title")
     @classmethod

@@ -20,6 +20,9 @@ class PlannedTask(BaseModel):
     target_symbols: List[str] = Field(default_factory=list)
     test_file: Optional[str] = None
     test_code: Optional[str] = None
+    visible_test_code: Optional[str] = None
+    holdout_test_code: Optional[str] = None
+    holdout_test_file: Optional[str] = None
     test_cmd: Optional[str] = None
     build_cmd: Optional[str] = None
     max_lines_added: int = 300
