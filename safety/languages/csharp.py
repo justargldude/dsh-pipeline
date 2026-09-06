@@ -5,6 +5,7 @@ Owns every C#-specific concern previously hardcoded inside
 early-return/stub detection and the full transition validation. The
 `CSharpSymbol` dataclass moves here verbatim (behavior unchanged).
 """
+import re
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 
@@ -113,6 +114,200 @@ class CSharpSymbol:
 
 
 class CSharpDriver(BaseLanguageDriver):
+    # ... (existing behavior unchanged above)
+
+    # 2-arg tautology: Assert.AreEqual(x, x) — the two arguments are the
+    # same expression (normalized), so the assert can never fail. Any
+    # callee containing "assert" with two identical arguments is rejected.
+    TWO_ARG_TAUTOLOGY_CALLEES = ("areequal", "aresame", "equals")
+
+    def __init__(self):
+        self._purity_parser_snapshot = None
+
+    def _check_two_arg_tautology(self, root, code_bytes: bytes, file_path: str) -> None:
+        """Rejects Assert.AreEqual(x, x) style 2-argument tautologies."""
+        stack = [root]
+        while stack:
+            curr = stack.pop()
+            if curr.type == "invocation_expression":
+                func_node = curr.child_by_field_name("function")
+                if func_node is not None:
+                    callee = code_bytes[func_node.start_byte:func_node.end_byte].decode("utf-8", errors="replace").lower()
+                    if "assert" in callee:
+                        arg_texts: List[str] = []
+                        for child in curr.children:
+                            if child.type == "argument_list":
+                                for arg in child.children:
+                                    if arg.type == "argument":
+                                        arg_texts.append(
+                                            code_bytes[arg.start_byte:arg.end_byte]
+                                            .decode("utf-8", errors="replace")
+                                        )
+                                break
+                        if len(arg_texts) == 2:
+                            norm = lambda s: re.sub(r"\s+", "", s).lower()
+                            if norm(arg_texts[0]) == norm(arg_texts[1]):
+                                call_text = code_bytes[curr.start_byte:curr.end_byte].decode("utf-8", errors="replace")
+                                raise ASTViolationError(
+                                    f"Tautological 2-argument assert detected in '{file_path}': "
+                                    f"'{call_text}' compares an expression to itself and can never fail"
+                                )
+            stack.extend(curr.children)
+
+    # ------------------------------------------------------------------
+    # FCIS PurityGuard (v2.3 Stage 2 Phase B)
+    # ------------------------------------------------------------------
+    # Functional Core / Imperative Shell boundary: files under Core/ or
+    # Domain/ must be pure per the FCIS skill contract.
+    PURITY_PATH_PREFIXES = ("core/", "domain/")
+
+    # Side-effecting member access chains (dot-chains, case-insensitive,
+    # matched on the callee/qualifier text).
+    PURITY_FORBIDDEN_CALLEES = {
+        # System.IO — filesystem I/O
+        "file", "directory", "path",
+        # Network
+        "socket", "tcpclient", "tcpclientex", "udpclient", "httpclient",
+        "webclient", "ftpclient", "dns",
+        # System clock — nondeterminism
+        "datetime",
+    }
+    # Method calls on *DbContext* / *Repository* / *Client* receivers —
+    # persistence/network side effects dressed as domain logic.
+    PURITY_FORBIDDEN_RECEIVER_PATTERNS = ("dbcontext", "repository", "client")
+    # Object creation of these types is banned in Core (unseeded Random
+    # included; seeded Random(42) is allowed and deterministic).
+    PURITY_FORBIDDEN_CONSTRUCTIONS = ("socket", "tcpclient", "udpclient", "httpclient", "webclient", "ftpclient")
+
+    def _is_purity_scope(self, file_path: str) -> bool:
+        """True when the file lives under a Core/ or Domain/ directory."""
+        if not file_path:
+            return False
+        norm = file_path.replace("\\", "/").lower()
+        return any(norm.startswith(p) or f"/{p}" in f"/{norm}" for p in self.PURITY_PATH_PREFIXES)
+
+    def check_purity(self, root, code_bytes: bytes, file_path: str) -> None:
+        """FCIS PurityGuard: rejects side-effecting or nondeterministic
+        constructs inside Functional Core (Core/, Domain/) files.
+
+        Walks the tree ONCE collecting violations; raises on the first
+        violation (deterministic order: tree order).
+        """
+        if not self._is_purity_scope(file_path):
+            return
+
+        violations: List[str] = []
+        stack = [root]
+        while stack:
+            curr = stack.pop()
+            ntype = curr.type
+            nbytes = code_bytes[curr.start_byte:curr.end_byte]
+
+            # --- 1. Member access a.banned(...)  |  Banned(...)
+            if ntype == "invocation_expression":
+                func_node = curr.child_by_field_name("function")
+                if func_node is not None:
+                    callee = (
+                        code_bytes[func_node.start_byte:func_node.end_byte]
+                        .decode("utf-8", errors="replace")
+                        .strip()
+                    )
+                    callee_last = callee.split(".")[-1].lower()
+                    qualifier_chain = [p.lower() for p in callee.split(".") if p]
+
+                    # DateTime.Now / DateTime.UtcNow — member access on the
+                    # DateTime static type (no invocation; handled at
+                    # member_access_expression below for `var t = DateTime.Now;`).
+                    # File.WriteAllText(...) — invocation with banned member.
+                    if callee_last in ("now", "utcnow"):
+                        violations.append(f"system clock access '{callee}' (pass timestamps as parameters)")
+                    elif callee_last in ("writealltext", "writealllines", "writeallbytes", "readalltext",
+                                          "readalllines", "readallbytes", "appendalltext", "appendalllines",
+                                          "appendallbytes", "delete", "exists", "copy", "move", "create"):
+                        if any(q in self.PURITY_FORBIDDEN_CALLEES for q in qualifier_chain):
+                            violations.append(f"filesystem I/O '{callee}()' in Functional Core")
+                    # Generic banned single-member call (e.g. File.Open,
+                    # Directory.CreateDirectory, Socket.Connect).
+                    if len(qualifier_chain) >= 2 and qualifier_chain[-2] in self.PURITY_FORBIDDEN_CALLEES:
+                        violations.append(f"forbidden side-effecting call '{callee}()' in Functional Core")
+
+                    # Receiver-pattern ban: obj.Save() where obj's type name
+                    # matches *DbContext*/*Repository*/*Client*.
+                    if len(qualifier_chain) >= 2:
+                        receiver = qualifier_chain[-2]
+                        if any(pat in receiver for pat in self.PURITY_FORBIDDEN_RECEIVER_PATTERNS):
+                            violations.append(
+                                f"call on '{receiver}' ({'/'.join(self.PURITY_FORBIDDEN_RECEIVER_PATTERNS)}) in Functional Core"
+                            )
+
+            # --- 2. new BannedType(...) constructions
+            elif ntype == "object_creation_expression":
+                type_node = curr.child_by_field_name("type")
+                if type_node is not None:
+                    tname = code_bytes[type_node.start_byte:type_node.end_byte].decode("utf-8", errors="replace").lower()
+                    if any(b in tname for b in self.PURITY_FORBIDDEN_CONSTRUCTIONS):
+                        violations.append(f"construction of side-effecting type 'new {tname}' in Functional Core")
+                    # new Random() without seed: the argument_list must contain
+                    # NO argument nodes (parens alone give child_count 2).
+                    # Seeded new Random(42) is deterministic — allowed.
+                    elif tname == "random":
+                        arg_list = curr.child_by_field_name("arguments")
+                        real_args = []
+                        if arg_list is not None:
+                            real_args = [c for c in arg_list.children if c.type == "argument"]
+                        if not real_args:
+                            violations.append(
+                                "unseeded 'new Random()' in Functional Core (use new Random(seed) with a fixed literal seed)"
+                            )
+
+            # --- 2b. DateTime.Now / DateTime.UtcNow as a VALUE (member access,
+            #     no invocation): var t = DateTime.Now; or foo(DateTime.UtcNow).
+            elif ntype == "member_access_expression":
+                expr = nbytes.decode("utf-8", errors="replace").replace(" ", "")
+                low = expr.lower()
+                if low.endswith("datetime.now") or low.endswith("datetime.utcnow"):
+                    violations.append(f"system clock access '{expr}' (pass timestamps as parameters)")
+
+            # --- 3. Static non-readonly field declarations: `static int X;`
+            elif ntype == "field_declaration":
+                decl_text = nbytes.decode("utf-8", errors="replace")
+                if "static" in decl_text and "readonly" not in decl_text.lower() and "const" not in decl_text.lower():
+                    # Extract declared names to name the violation precisely.
+                    fstack = [curr]
+                    names: List[str] = []
+                    while fstack:
+                        fc = fstack.pop()
+                        if fc.type == "variable_declaration":
+                            for vd in fc.children:
+                                if vd.type == "variable_declarator":
+                                    nm = code_bytes[vd.start_byte:vd.end_byte].decode("utf-8", errors="replace")
+                                    names.append(nm.split("=")[0].strip())
+                        fstack.extend(fc.children)
+                    if names:
+                        violations.append(
+                            f"static mutable field(s) {names} in Functional Core — make them readonly/const or instance state"
+                        )
+
+            # --- 4. Assignment to a static field (a later mutation path for
+            #     the same state; declaration-only ban is not enough).
+            if ntype == "assignment_expression":
+                left = curr.child_by_field_name("left")
+                if left is not None:
+                    ltext = code_bytes[left.start_byte:left.end_byte].decode("utf-8", errors="replace")
+                    # Match Class.Member = ... (qualified static write) or a
+                    # local write to a name that looked static by declaration.
+                    if "." in ltext:
+                        cls, _, member = ltext.rpartition(".")
+                        violations.append(
+                            f"static mutable field write '{ltext.strip()}' in Functional Core"
+                        )
+
+            stack.extend(curr.children)
+
+        if violations:
+            raise ASTViolationError(
+                f"FCIS PurityGuard violation in '{file_path}': " + "; ".join(violations[:5])
+            )
     """C# implementation of the language SPI. Behavior is identical to the
     pre-refactor ASTGuard logic (Stage 1 mandates zero behavior change)."""
 
@@ -309,10 +504,27 @@ class CSharpDriver(BaseLanguageDriver):
                                 ]
                                 if args:
                                     predicate_text = args[0]
+                                    # 2-arg tautology (v2.3 Phase B): a 2-arg
+                                    # comparison assert (AreEqual/AreSame/
+                                    # Equals) with identical normalized
+                                    # arguments can never fail.
+                                    if len(args) == 2:
+                                        callee_low = callee_text.lower()
+                                        if any(k in callee_low for k in ("areequal", "aresame", ".equals")):
+                                            na = re.sub(r"\s+", "", args[0]).lower()
+                                            nb = re.sub(r"\s+", "", args[1]).lower()
+                                            if na == nb:
+                                                predicate_text = f"{args[0]} == {args[1]}"
                                 break
 
                         cleaned_pred = predicate_text.replace(" ", "").lower()
                         is_tautology = cleaned_pred in self.TAUTOLOGICAL_ASSERT_PATTERNS
+                        # 1-arg self-comparison Debug.Assert(x == x) is a
+                        # tautology however the operands are spelled.
+                        if not is_tautology:
+                            m = re.fullmatch(r"(.+?)==(.+)", cleaned_pred)
+                            if m and m.group(1) == m.group(2):
+                                is_tautology = True
                         asserts.append((call_text, predicate_text, is_tautology))
 
             stack.extend(curr.children)
@@ -459,6 +671,13 @@ class CSharpDriver(BaseLanguageDriver):
                         f"Assertion semantic weakening detected in '{file_path}': "
                         f"Assertion weakened to tautology '{call_text}'"
                     )
+                # v2.3 Phase B: a NEWLY INTRODUCED tautology is also rejected
+                # — it is a fake verification line (a passing no-op), not a
+                # real check. Dev agents must add real assertions.
+                raise ASTViolationError(
+                    f"Tautological assertion detected in '{file_path}': '{call_text}' "
+                    f"compares an expression to itself / asserts a constant and can never fail"
+                )
 
         # Check for count drop in non-trivial assertions
         if len(new_non_trivial) < len(old_non_trivial):
@@ -469,3 +688,9 @@ class CSharpDriver(BaseLanguageDriver):
 
         # 6. Early return and dummy stub bypass check
         self.check_early_return_and_stubs(old_symbols, new_symbols, file_path)
+
+        # 7. FCIS PurityGuard (v2.3 Phase B): Core/Domain files must stay pure.
+        self.check_purity(new_tree.root_node, new_bytes, file_path)
+
+        # 8. Two-argument tautological asserts (Assert.AreEqual(x, x))
+        self._check_two_arg_tautology(new_tree.root_node, new_bytes, file_path)
