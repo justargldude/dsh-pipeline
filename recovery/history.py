@@ -62,15 +62,18 @@ class RecoveryHistory(BaseModel):
         if not self.attempts:
             return ""
 
-        lines = ["## PREVIOUS FAILED ATTEMPTS (AVOID REPEATING THESE MISTAKES):"]
+        header = "## PREVIOUS FAILED ATTEMPTS (AVOID REPEATING THESE MISTAKES):"
+        truncation_marker = "...[history truncated to preserve token budget]"
+
+        formatted_blocks = []
         for att in self.attempts:
-            lines.append(f"### Attempt {att.attempt_index} (Model: {att.model_type_used})")
+            lines = [f"### Attempt {att.attempt_index} (Model: {att.model_type_used})"]
             lines.append(f"- What Failed: [{att.failure_type.value}]")
-            
-            # Preserve root cause error details (typically at the end of the traceback)
+
+            # Tầng 2: Balanced keep (150 chars head + \n...\n + 150 chars tail)
             err_summary = att.error_message.strip()
             if len(err_summary) > 300:
-                err_summary = "..." + err_summary[-300:]
+                err_summary = err_summary[:150] + "\n...\n" + err_summary[-150:]
             lines.append(f"- Why It Failed: {err_summary}")
 
             # Concise summary of what was attempted without dumping raw full patch JSON
@@ -83,10 +86,26 @@ class RecoveryHistory(BaseModel):
 
             lesson = self._derive_lesson(att.failure_type, att.error_message)
             lines.append(f"- Key Constraint & Lesson: {lesson}")
-            lines.append("")
+            formatted_blocks.append("\n".join(lines))
 
-        result = "\n".join(lines).strip()
-        if len(result) > max_history_chars:
-            result = result[:max_history_chars] + "\n...[history truncated to preserve token budget]"
-        return result
+        # Tầng 1: Block-granularity Tail-keep (iterate reversed from newest to oldest)
+        kept_blocks = []
+        current_len = len(header) + 1
+        marker_len = len(truncation_marker) + 1
+
+        for block in reversed(formatted_blocks):
+            block_len = len(block) + 2  # separator
+            if kept_blocks and (current_len + block_len + marker_len > max_history_chars):
+                break
+            kept_blocks.append(block)
+            current_len += block_len
+
+        truncated = len(kept_blocks) < len(formatted_blocks)
+        kept_blocks.reverse()
+
+        result_parts = [header]
+        if truncated:
+            result_parts.append(truncation_marker)
+        result_parts.extend(kept_blocks)
+        return "\n\n".join(result_parts).strip()
 
