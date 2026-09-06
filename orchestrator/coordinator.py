@@ -107,33 +107,22 @@ class AutonomousCoordinator:
         try:
             run_dir_path = Path(run_dir).resolve()
             target_repo_path = self.target_repo.resolve()
-            return [str(run_dir_path.relative_to(target_repo_path))]
+            rel = str(run_dir_path.relative_to(target_repo_path))
+            if rel.startswith(".git/") or rel.startswith(".git\\") or rel == ".git":
+                return None
+            return [rel]
         except ValueError:
             # Fallback to absolute path if not relative (e.g., cross-drive on Windows)
             return [str(Path(run_dir).resolve())]
 
     def _manifest_init(self, run_dir: Path) -> Path:
-        """Creates the run directory and an empty manifest.json, and adds it to .gitignore."""
+        """Creates the run directory and an empty manifest.json (no .gitignore mutation)."""
         run_dir = Path(run_dir)
         if not run_dir.is_absolute():
             run_dir = self.target_repo / run_dir
         run_dir = run_dir.resolve()
         run_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Auto-append run directory to .gitignore
-        try:
-            rel_run_dir = run_dir.relative_to(self.target_repo.resolve())
-            gitignore_path = self.target_repo / ".gitignore"
-            ignore_entry = f"{rel_run_dir}/\n"
-            if gitignore_path.exists():
-                content = gitignore_path.read_text(encoding="utf-8")
-                if str(rel_run_dir) not in content:
-                    with gitignore_path.open("a", encoding="utf-8") as f:
-                        f.write(f"\n# Auto-generated run directory\n{ignore_entry}")
-            else:
-                gitignore_path.write_text(f"# Auto-generated run directory\n{ignore_entry}", encoding="utf-8")
-        except Exception as e:
-            logger.warning(f"[COORDINATOR] Failed to update .gitignore: {e}")
+        self._run_dir = run_dir
 
         manifest_path = run_dir / "manifest.json"
         if not manifest_path.exists():
@@ -171,31 +160,19 @@ class AutonomousCoordinator:
         from safety.patch_engine import atomic_write_file
         atomic_write_file(manifest_path, json.dumps(data, indent=2))
 
-    def _write_red_test_to_main(self, task: PlannedTask) -> bool:
-        """Writes the QA red test into the main repo (unchanged legacy path)."""
+    def _write_red_test_to_main(self, task: PlannedTask, worktree_path: Optional[Path] = None) -> bool:
+        """Writes the QA red test directly into a transaction worktree instead of polluting main repo."""
         if not (task.test_file and task.test_code):
             return False
-        test_path = self.target_repo / task.test_file
-        test_path.parent.mkdir(parents=True, exist_ok=True)
-        test_path.write_text(task.test_code, encoding="utf-8")
+        if worktree_path is not None:
+            dst = Path(worktree_path) / task.test_file
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            dst.write_text(task.test_code, encoding="utf-8")
         return True
 
     def _ensure_red_test_in_worktree(self, task: PlannedTask, worktree_path: Path) -> bool:
-        """Copies the QA red test into a transaction worktree.
-
-        Worktrees are created from committed HEAD, so a red test written to the
-        main repo as an untracked file never reaches the Dev worktree and its
-        validation runs an incomplete test set (false green).
-        """
-        if not (task.test_file and task.test_code):
-            return False
-        src = self.target_repo / task.test_file
-        if not src.exists():
-            return False
-        dst = Path(worktree_path) / task.test_file
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
-        return True
+        """Writes the QA red test directly into a transaction worktree."""
+        return self._write_red_test_to_main(task, worktree_path=worktree_path)
 
     def _count_discovered_tests(self, count_cmd: List[str]) -> Optional[int]:
         """Runs a test-discovery counting command; returns parsed count or None."""
@@ -309,7 +286,7 @@ Respond ONLY with a valid JSON object (no prose, no markdown fences) matching ex
 
         # 2. PHA 2 & 3: Iterate over tasks with Dev Subagent + Pipeline Sandbox
         context_builder = ContextBuilder()
-        self._run_dir = self.target_repo / f"run_{int(time.time())}"
+        self._run_dir = self.target_repo / ".git" / "dsh_runs" / f"run_{int(time.time())}"
         self._manifest_init(self._run_dir)
 
         for task in audit_report.tasks:
@@ -375,9 +352,11 @@ Respond ONLY with a valid JSON object (no prose, no markdown fences) matching ex
             # via the runtime's on_worktree_created callback.
             runtime.on_worktree_created = self._red_test_worktree_callback(task)
             if self._run_dir is not None:
-                allowance = set(runtime.allowed_untracked_paths or [])
-                allowance.add(str(self._run_dir.relative_to(self.target_repo)))
-                runtime.allowed_untracked_paths = sorted(allowance)
+                manifest_allowance = self._untracked_allowance_for_manifest()
+                if manifest_allowance:
+                    allowance = set(runtime.allowed_untracked_paths or [])
+                    allowance.update(manifest_allowance)
+                    runtime.allowed_untracked_paths = sorted(allowance)
             tx_res: TransactionResult = runtime.execute_with_recovery(
                 task=task_def,
                 provider=provider,

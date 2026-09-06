@@ -306,14 +306,14 @@ class TransactionWorktree:
     def commit(
         self,
         task_id: str,
-        message: str,
+        message: Optional[str] = None,
         expected_paths: Optional[List[str]] = None,
         allowed_untracked_paths: Optional[List[str]] = None,
     ) -> str:
         """Commits staged changes in the isolated worktree, performs post-commit verification,
         and verifies clean post-commit state.
         """
-        commit_msg = f"[{task_id}] {message}"
+        commit_msg = f"[{task_id}] {message}" if message is not None else f"[{task_id}]"
         # Mutation: git commit — invalidate status cache FIRST, before the
         # commit command itself and before the internal is_clean() call below,
         # so post-commit verification never reads a pre-commit cached status
