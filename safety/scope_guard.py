@@ -16,6 +16,11 @@ class ScopeViolationError(Exception):
 # Anti-reward-hacking v2.3 Checkpoint 5: patterns identifying TEST files that
 # a Dev-agent task must never write or delete. Only QA-authored tasks
 # (role='qa', e.g. red-test authoring) may touch these.
+#
+# The authoritative list lives on SafetyPolicy.dev_forbidden_test_file_patterns
+# (policy layer, configurable); these module constants are the DEFAULTS the
+# policy ships with and are kept for backwards compatibility with code that
+# imported them directly.
 DEV_FORBIDDEN_TEST_FILE_PATTERNS = [
     "*Test.cs",
     "*Tests.cs",
@@ -45,23 +50,33 @@ DEV_FORBIDDEN_TEST_DIR_PATTERNS = [
 ]
 
 
-def _is_dev_forbidden_test_file(rel_file: str) -> Optional[str]:
+def _is_dev_forbidden_test_file(rel_file: str, patterns: Optional[list] = None) -> Optional[str]:
     """Returns the matched pattern if `rel_file` is a test file, else None.
 
     Pure path-pattern matching (fnmatch over the basename, the full relative
     path, and every path component), independent of filesystem state.
+
+    `patterns` defaults to the module-level DEV_FORBIDDEN_* constants; the
+    ScopeGuard passes its policy's configured list so policy is the single
+    source of truth.
     """
+    file_pats, dir_pats = DEV_FORBIDDEN_TEST_FILE_PATTERNS, DEV_FORBIDDEN_TEST_DIR_PATTERNS
+    if patterns is not None:
+        # Caller-supplied unified list: dir patterns are those ending in "/*".
+        file_pats = [p for p in patterns if not p.endswith("/*")]
+        dir_pats = [p for p in patterns if p.endswith("/*")]
+
     lowered = rel_file.lower()
     components = lowered.split("/")
     basename = components[-1] if components else lowered
 
-    for pattern in DEV_FORBIDDEN_TEST_FILE_PATTERNS:
+    for pattern in file_pats:
         if (
             fnmatch.fnmatch(lowered, pattern.lower())
             or fnmatch.fnmatch(basename, pattern.lower())
         ):
             return pattern
-    for pattern in DEV_FORBIDDEN_TEST_DIR_PATTERNS:
+    for pattern in dir_pats:
         if fnmatch.fnmatch(lowered, pattern.lower()):
             return pattern
         # A file inside e.g. "MyTests/" matches component-wise too:
@@ -153,9 +168,13 @@ class ScopeGuard:
             # 3.5 Anti-reward-hacking v2.3 Checkpoint 5: a Dev-agent task must
             # never write/delete a test file (only QA tasks may, e.g. red-test
             # authoring). This blocks the Dev agent from weakening the tests
-            # that will judge it.
+            # that will judge it. Patterns come from the POLICY layer
+            # (SafetyPolicy.dev_forbidden_test_file_patterns).
             if getattr(task, "role", "dev") != "qa":
-                matched = _is_dev_forbidden_test_file(rel_file)
+                matched = _is_dev_forbidden_test_file(
+                    rel_file,
+                    patterns=self.policy.dev_forbidden_test_file_patterns,
+                )
                 if matched:
                     raise ScopeViolationError(
                         f"Forbidden test file access for Dev-agent task: '{rel_file}' "

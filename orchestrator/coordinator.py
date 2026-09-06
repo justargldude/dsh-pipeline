@@ -373,6 +373,41 @@ Respond ONLY with a valid JSON object (no prose, no markdown fences) matching ex
         (QA, prover) returned REJECTED."""
         return any(v and v.get("verdict") == "REJECTED" for v in verdicts)
 
+    def _run_metamorphic_check(self, task: "PlannedTask", test_cmd: str) -> Optional[Dict[str, Any]]:
+        """v2.3 Phase D2: run the MetamorphicGate on the task's visible test
+        file in the MAIN repo using the real configured test command.
+
+        Returns a plain dict verdict ({success, failed_variant, ...}) or None
+        when the gate cannot run (no test file on disk).
+        """
+        import shlex as _shlex
+        from validation.metamorphic import MetamorphicGate
+
+        test_path = self.target_repo / task.test_file
+        if not test_path.exists():
+            return None
+
+        cmd = _shlex.split(test_cmd)
+
+        def _runner(repo_path: Path):
+            proc = subprocess.run(
+                cmd,
+                cwd=self.target_repo,
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+            return (proc.returncode, (proc.stdout or "") + (proc.stderr or ""))
+
+        gate = MetamorphicGate(test_runner=_runner)
+        res = gate.run_gate(self.target_repo, task.test_file)
+        return {
+            "success": res.success,
+            "skipped": res.skipped,
+            "failed_variant": res.failed_variant,
+            "skipped_variants": res.skipped_variants,
+        }
+
 
     def run(self, user_goal: str, max_tasks: int = 3) -> OrchestrationResult:
         """Executes the full autonomous TDD loop."""
@@ -453,6 +488,17 @@ Respond ONLY with a valid JSON object (no prose, no markdown fences) matching ex
             # F-02: wire red-test propagation into every transaction worktree
             # via the runtime's on_worktree_created callback.
             runtime.on_worktree_created = self._red_test_worktree_callback(task)
+            # v2.3 Phase A: load this task's HIDDEN holdout test into the
+            # runtime so the holdout_injector slot writes it into the
+            # worktree immediately before T3 Regression. The holdout never
+            # enters Dev context (context/builder filters it) and is never
+            # merged into Dev code (worktree is discarded after validation).
+            runtime._pending_holdouts = [
+                {
+                    "holdout_test_file": task.holdout_test_file,
+                    "holdout_test_code": task.holdout_test_code,
+                }
+            ] if (task.holdout_test_file and task.holdout_test_code) else []
             if self._run_dir is not None:
                 manifest_allowance = self._untracked_allowance_for_manifest()
                 if manifest_allowance:
@@ -492,6 +538,40 @@ Respond ONLY with a valid JSON object (no prose, no markdown fences) matching ex
                 if self.prover_client is not None:
                     prover_verdict = self._review_diff_with_prover(task, diff_content)
                     logger.info(f"[COORDINATOR] Security Prover verdict: {json.dumps(prover_verdict, ensure_ascii=False)[:200]}")
+
+                # v2.3 Phase D2: Metamorphic Check on the task's visible test
+                # file — semantic-preserving variants (reseed/rename/reorder)
+                # must behave identically. Only meaningful when a test command
+                # is configured (production); test-mode mocks have no runner.
+                if not self.test_mode and task.test_file:
+                    test_cmd = task.test_cmd or audit_report.detected_test_cmd
+                    if test_cmd:
+                        try:
+                            metamorphic_verdict = self._run_metamorphic_check(task, test_cmd)
+                            if metamorphic_verdict is not None and not metamorphic_verdict["success"]:
+                                overall_success = False
+                                review_verdict = dict(review_verdict)
+                                review_verdict["metamorphic"] = metamorphic_verdict
+                                tx_res = tx_res.model_copy(update={
+                                    "success": False,
+                                    "failure_type": "MORPHIC_FAILURE",
+                                    "error_message": (
+                                        f"Metamorphic check failed: variant "
+                                        f"'{metamorphic_verdict['failed_variant']}' failed while the "
+                                        f"original suite passed (hardcoded/flaky/order-dependent)"
+                                    ),
+                                }) if hasattr(tx_res, "model_copy") else tx_res
+                                logger.error(
+                                    f"[COORDINATOR] Task {task.task_id} FAILED metamorphic check "
+                                    f"(variant '{metamorphic_verdict['failed_variant']}') — rejecting."
+                                )
+                        except Exception as morph_err:
+                            # Best-effort gate wiring: an infrastructure error in
+                            # the metamorphic runner is logged, never silently
+                            # ignored, but does not corrupt the pipeline state.
+                            logger.warning(
+                                f"[COORDINATOR] Metamorphic check could not run for {task.task_id}: {morph_err}"
+                            )
 
                 # v2.3 Phase D1: verdicts are enforced gates, not decorations.
                 # A REJECTED from QA or the prover fails the task even though

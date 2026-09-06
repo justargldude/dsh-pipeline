@@ -33,6 +33,38 @@ class SafetyPolicy(BaseModel):
         ]
     )
 
+    # v2.3 Phase A — Write-Scope isolation: patterns identifying TEST files
+    # that a Dev-agent task must never write or delete. Only QA-authored
+    # tasks (role='qa', e.g. red-test authoring) may touch these. The
+    # ScopeGuard consults this policy list (not its own constants) so the
+    # rule is configurable and introspectable at the policy layer.
+    dev_forbidden_test_file_patterns: List[str] = Field(
+        default_factory=lambda: [
+            "*Test.cs",
+            "*Tests.cs",
+            "*Test.java",
+            "*Tests.java",
+            "*Test.ts",
+            "*Tests.ts",
+            "*Test.js",
+            "*Tests.js",
+            "test_*.py",
+            "*_test.py",
+            "*_test.go",
+            "*_test.dart",
+            "*.test.js",
+            "*.spec.js",
+            "*.test.ts",
+            "*.spec.ts",
+            # Directory patterns: anything INSIDE such a directory is a test file.
+            "*Tests/*",
+            "*Test/*",
+            "tests/*",
+            "test/*",
+            "__tests__/*",
+        ]
+    )
+
 
 class BudgetReservation(BaseModel):
     reservation_id: str
