@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
-from core.config import PipelineConfig
+from core.config import PipelineConfig, get_model_family
 from core.runtime import DSHRuntime
 from context.builder import ContextBuilder
 from task.schema import TaskDefinition, RiskLevel, TransactionResult
@@ -87,6 +87,19 @@ class AutonomousCoordinator:
         self.deepseek = deepseek  # backwards-compatible alias
         # QA round-2 F-01: run manifest dir allowance; set in run().
         self._run_dir: Optional[Path] = None
+
+        # Cross-family enforcement (Anti-Reward Hacking v2.3 Section 0)
+        resolved_qa = qa_name or (getattr(self.qa_client, "name", None) or "agy")
+        resolved_dev = dev_name or (getattr(self.dev_provider, "model_name", None) or "deepseek")
+        qa_fam = get_model_family(resolved_qa)
+        dev_fam = get_model_family(resolved_dev)
+        if qa_fam == dev_fam and not (qa_fam.startswith("mock") or dev_fam.startswith("mock") or qa_fam.startswith("unknown")):
+            raise ValueError(
+                f"Cross-family enforcement failed: QA model '{resolved_qa}' ({qa_fam}) "
+                f"and Dev model '{resolved_dev}' ({dev_fam}) belong to the same family. "
+                "QA and Dev must belong to different model families to prevent shared blind spots."
+            )
+
 
     def _red_test_worktree_callback(self, task: PlannedTask):
         """Returns a callback that copies this task's red test into each
