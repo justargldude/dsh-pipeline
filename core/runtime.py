@@ -353,8 +353,21 @@ CRITICAL REASONING DIRECTIVE:
             self._log_event(PipelineEvent.CHECKPOINT_CREATED, task.task_id, f"Isolated worktree created for {tx_id} at {tx_worktree.worktree_path}")
             events.append(PipelineEvent.CHECKPOINT_CREATED.value)
 
-            # QA round-2 F-02: give the coordinator a chance to propagate
-            # red tests into the fresh worktree BEFORE any validation runs.
+            # 2. Capture BASELINE inside isolated clean worktree (BEFORE red tests or candidate patch)
+            self._log_event(PipelineEvent.BASELINE_CAPTURED, task.task_id, "Capturing pre-patch baseline build and validation state...")
+            events.append(PipelineEvent.BASELINE_CAPTURED.value)
+            self.ws.journal.update_state(tx_id, TransactionState.BASELINE_CAPTURED)
+
+            baseline = self.baseline_manager.get_or_capture_baseline(
+                repo_path=tx_worktree.worktree_path,
+                ws=self.ws,
+                build_runner=self.build_runner,
+                regression_validator=self.validation_pipeline.regression_validator,
+                behavioral_validator=self.validation_pipeline.behavioral_validator,
+                base_commit=tx_worktree.base_commit,
+            )
+
+            # 3. Bug 10 / QA round-2 F-02: inject red tests into worktree AFTER clean baseline capture
             if self.on_worktree_created is not None:
                 try:
                     self.on_worktree_created(tx_worktree.worktree_path)
@@ -365,7 +378,7 @@ CRITICAL REASONING DIRECTIVE:
                         f"on_worktree_created callback failed: {cb_err}",
                     )
 
-            # 2. Pre-apply Validation (T0 Structural + T4 Risk) executed in worktree
+            # 4. Pre-apply Validation (T0 Structural + T4 Risk) executed in worktree
             self.ws.journal.update_state(tx_id, TransactionState.VALIDATING)
             pre_report = self.validation_pipeline.validate_pre_apply(
                 task=task,
@@ -403,20 +416,6 @@ CRITICAL REASONING DIRECTIVE:
 
             self._log_event(PipelineEvent.SCOPE_PASSED, task.task_id, "T0 Structural & T4 Risk validation passed.")
             events.append(PipelineEvent.SCOPE_PASSED.value)
-
-            # 3. Capture BASELINE inside isolated worktree (BEFORE candidate patch)
-            self._log_event(PipelineEvent.BASELINE_CAPTURED, task.task_id, "Capturing pre-patch baseline build and validation state...")
-            events.append(PipelineEvent.BASELINE_CAPTURED.value)
-            self.ws.journal.update_state(tx_id, TransactionState.BASELINE_CAPTURED)
-
-            baseline = self.baseline_manager.get_or_capture_baseline(
-                repo_path=tx_worktree.worktree_path,
-                ws=self.ws,
-                build_runner=self.build_runner,
-                regression_validator=self.validation_pipeline.regression_validator,
-                behavioral_validator=self.validation_pipeline.behavioral_validator,
-                base_commit=tx_worktree.base_commit,
-            )
 
             # 4. Apply Patch to Filesystem in Isolated Worktree using Atomic Writes
             simulated_files = validate_and_simulate_proposal(
