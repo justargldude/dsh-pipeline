@@ -92,6 +92,12 @@ CRITICAL REASONING DIRECTIVE:
 - Historical markdown files, notes, or diagnostic logs are past observations at specific timestamps - NOT immutable business rules.
 - Never assume an endpoint or external service is broken from old reports; always verify liveness with real-time execution before concluding.
 - If an explanation claims a wait or a block, treat it as an unverified hypothesis and test it from first principles.
+
+PACT / DESIGN-BY-CONTRACT (MANDATORY):
+- Every public method you add or modify MUST start with explicit precondition guard clauses that validate ALL inputs and throw (ArgumentException/InvalidOperationException...) on contract violations. Never return a default/fallback value for invalid input.
+- Core/Domain code must stay PURE: no File/Directory/Socket/HttpClient I/O, no DateTime.Now/UtcNow (accept a timestamp parameter instead), no unseeded new Random() (accept a seed or IRandomSource parameter), no static mutable fields. Side effects belong to the Shell layer only.
+- Never hardcode a value that a test happens to assert (magic numbers, fixed strings, input->output lookup tables keyed on the exact test inputs). Derive results from the general rule the task describes.
+- You cannot see the full test suite. Tests you cannot see WILL run against your patch. Implement the general contract, not the specific visible examples.
 """
 
     # QA round-2 F-02: optional callback invoked with the worktree path right
