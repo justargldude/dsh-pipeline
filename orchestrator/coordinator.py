@@ -385,7 +385,7 @@ Respond ONLY with a valid JSON object (no prose, no markdown fences) matching ex
             )
 
             diff_content = ""
-            review_verdict = ""
+            review_verdict: Optional[Dict[str, Any]] = None
 
             if tx_res.success:
                 # Capture diff for QA review
