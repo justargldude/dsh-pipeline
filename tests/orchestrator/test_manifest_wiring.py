@@ -70,7 +70,7 @@ def test_run_creates_and_updates_manifest(tmp_path: Path, monkeypatch):
 
     result = coord.run(user_goal="goal", max_tasks=1)
 
-    run_dirs = [d for d in repo.glob("run_*") if d.is_dir()]
-    assert run_dirs, "coordinator.run must create a run_<id>/ manifest directory"
+    run_dirs = [d for d in (repo / ".git" / "dsh_runs").glob("run_*") if d.is_dir()]
+    assert run_dirs, "coordinator.run must create a .git/dsh_runs/run_<id>/ manifest directory"
     manifest = json.loads((run_dirs[0] / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["tasks"]["T_M_1"]["status"] == "PASSED"

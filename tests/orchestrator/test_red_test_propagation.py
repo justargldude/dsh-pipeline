@@ -96,15 +96,15 @@ class TestRedTestReachesWorktree:
         )
         assert copied.read_text(encoding="utf-8") == task.test_code
 
-    def test_prepare_red_test_main_repo_fallback(self, tmp_path: Path):
-        """Main repo copy must still happen first (existing behaviour preserved)."""
+    def test_prepare_red_test_main_repo_clean(self, tmp_path: Path):
+        """Bug #7': Red tests must NOT pollute main repo working tree."""
         repo = _git_repo(tmp_path)
         coord = _coordinator(repo)
         task = _task_with_test("tests/test_red_02.test.js")
 
         coord._write_red_test_to_main(task)
 
-        assert (repo / task.test_file).exists()
+        assert not (repo / task.test_file).exists(), "Red test must not be written to main repo"
 
 
 class TestDiscoverySmokeCheck:

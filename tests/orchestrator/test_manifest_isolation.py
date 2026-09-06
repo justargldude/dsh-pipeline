@@ -25,7 +25,8 @@ def _git_repo(tmp_path: Path) -> Path:
     return tmp_path
 
 
-def test_manifest_init_auto_appends_run_dir_to_gitignore(tmp_path: Path):
+def test_manifest_init_does_not_mutate_gitignore(tmp_path: Path):
+    """Bug #7: _manifest_init must not pollute target repo .gitignore."""
     repo = _git_repo(tmp_path)
     coord = AutonomousCoordinator(
         target_repo=repo,
@@ -38,11 +39,8 @@ def test_manifest_init_auto_appends_run_dir_to_gitignore(tmp_path: Path):
     coord._manifest_init(run_dir)
 
     gitignore = repo / ".gitignore"
-    assert gitignore.exists(), ".gitignore must be created or updated"
-    content = gitignore.read_text(encoding="utf-8")
-    assert "run_1725540000" in content or "run_*" in content, (
-        "Run directory must be auto-appended to target repo .gitignore"
-    )
+    assert not gitignore.exists(), ".gitignore must NOT be created or mutated by manifest_init"
+    assert (run_dir / "manifest.json").exists()
 
 
 def test_shadow_run_dir_outside_repo_does_not_crash_allowance(tmp_path: Path):
