@@ -183,6 +183,7 @@ PACT / DESIGN-BY-CONTRACT (MANDATORY):
         self._t25_current_files: Dict[str, Any] = {}
         self._t25_old_files: Dict[str, Any] = {}
         self._pending_holdouts: List[Dict[str, Any]] = []
+        self._last_injected_holdouts: List[str] = []
         mutation_gate = None
         holdout_injector = None
         if not test_mode and self.config.test_command:
@@ -245,6 +246,7 @@ PACT / DESIGN-BY-CONTRACT (MANDATORY):
                         injected.append(pt["holdout_test_file"])
                 except Exception as e:
                     logger.warning(f"[HOLDOUT] Injection failed (logged): {e}")
+                self._last_injected_holdouts = list(injected)
                 return HoldoutInjectionResult(injected_files=injected)
 
         self.validation_pipeline = ValidationPipeline(
@@ -570,6 +572,19 @@ PACT / DESIGN-BY-CONTRACT (MANDATORY):
                 build_runner=self.build_runner,
                 baseline=baseline,
             )
+
+            # Cleanup injected holdout files from worktree (must run on BOTH
+            # success and failure paths to avoid polluting verify_changed_paths).
+            for hf in self._last_injected_holdouts:
+                try:
+                    p = Path(tx_worktree.worktree_path) / hf
+                    if p.exists():
+                        p.unlink()
+                        logger.info(f"[HOLDOUT] Cleaned up injected holdout: {hf}")
+                except Exception as e:
+                    logger.warning(f"[HOLDOUT] Failed to clean up {hf}: {e}")
+            self._last_injected_holdouts = []
+
             if not post_report.success:
                 self.session_tracker.release(tx_id)
                 self.ws.journal.update_state(tx_id, TransactionState.FAILED)

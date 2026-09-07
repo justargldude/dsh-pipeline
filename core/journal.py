@@ -23,12 +23,30 @@ class JournalRecord(BaseModel):
     updated_at: float = Field(default_factory=time.time)
 
 
+def _get_git_dir(repo_path: Path) -> Path:
+    repo = Path(repo_path).resolve()
+    git_entry = repo / ".git"
+    if git_entry.is_dir():
+        return git_entry
+    if git_entry.is_file():
+        try:
+            content = git_entry.read_text(encoding="utf-8").strip()
+            if content.startswith("gitdir:"):
+                p = Path(content[7:].strip())
+                if not p.is_absolute():
+                    p = (repo / p).resolve()
+                return p
+        except Exception:
+            pass
+    return git_entry
+
+
 class TransactionJournal:
     """Persistent transaction journal to track active worktrees and recover from process crashes."""
 
     def __init__(self, repo_path: Path):
         self.repo_path = repo_path.resolve()
-        self.journal_file = self.repo_path / ".git" / "dsh_journal.json"
+        self.journal_file = _get_git_dir(self.repo_path) / "dsh_journal.json"
         # In-process lock only; multi-process coordination is out of scope.
         self._lock = threading.Lock()
         # Opt 8.1: lazy-write pending states for update_state (in-memory only

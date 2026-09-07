@@ -6,7 +6,7 @@ import threading
 import time
 import uuid
 from pathlib import Path
-from typing import List, Optional, Set, Tuple
+from typing import List, Optional, Set, Tuple, Union
 
 from core.state import FileStatus, TransactionState, WorkspaceState, WorktreeMetadata
 from core.journal import TransactionJournal, JournalRecord
@@ -26,6 +26,26 @@ class WorktreeCleanupError(WorkspaceError):
 
 class WorktreeStagingError(WorkspaceError):
     pass
+
+
+def get_git_dir(repo_path: Union[str, Path]) -> Path:
+    """Resolves the actual Git directory for a repo, supporting standard repos,
+    worktrees (.git file pointing to gitdir), and submodules."""
+    repo = Path(repo_path).resolve()
+    git_entry = repo / ".git"
+    if git_entry.is_dir():
+        return git_entry
+    if git_entry.is_file():
+        try:
+            content = git_entry.read_text(encoding="utf-8").strip()
+            if content.startswith("gitdir:"):
+                p = Path(content[7:].strip())
+                if not p.is_absolute():
+                    p = (repo / p).resolve()
+                return p
+        except Exception:
+            pass
+    return git_entry
 
 
 def generate_transaction_id(task_id: str) -> str:
@@ -206,9 +226,9 @@ class TransactionWorktree:
         return self._run_git("rev-parse", "HEAD")
 
     def _get_status_bytes(self) -> bytes:
-        """Returns cached `git status --porcelain=v1 -z` bytes, spawning git at most once between mutations (Opt 8.4)."""
+        """Returns cached `git status --porcelain=v1 -z --untracked-files=all` bytes, spawning git at most once between mutations (Opt 8.4)."""
         if self._status_cache is None:
-            self._status_cache = self._run_git_bytes("status", "--porcelain=v1", "-z")
+            self._status_cache = self._run_git_bytes("status", "--porcelain=v1", "-z", "--untracked-files=all")
         return self._status_cache
 
     def get_status(self) -> WorkspaceState:
@@ -424,7 +444,7 @@ class WorkspaceManager:
         if worktree_dir is not None:
             wt_path = (worktree_dir / tx_id).resolve()
         else:
-            wt_path = (self.repo_path / ".git" / "dsh_worktrees" / tx_id).resolve()
+            wt_path = (get_git_dir(self.repo_path) / "dsh_worktrees" / tx_id).resolve()
 
         wt_path.parent.mkdir(parents=True, exist_ok=True)
         if wt_path.exists():

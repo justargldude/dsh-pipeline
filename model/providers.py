@@ -3,6 +3,7 @@ import logging
 import os
 import re
 import time
+import threading
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Optional, Tuple
@@ -62,6 +63,26 @@ def resolve_deepseek_api_key() -> Optional[str]:
             pass
 
     return None
+
+
+def resolve_tokenrouter_api_key() -> str:
+    """Auto-sync API key for TokenRouter / GLM from env or ~/.dsh/.credentials.yaml."""
+    if os.environ.get("TOKENROUTER_API_KEY"):
+        return os.environ["TOKENROUTER_API_KEY"].strip()
+
+    cred_file = Path.home() / ".dsh" / ".credentials.yaml"
+    if cred_file.exists():
+        try:
+            with open(cred_file, "r", encoding="utf-8") as f:
+                data = yaml.safe_load(f) or {}
+                if isinstance(data, dict):
+                    refs = data.get("refs", {})
+                    if "TOKENROUTER_API_KEY" in refs:
+                        return str(refs["TOKENROUTER_API_KEY"]).strip()
+        except Exception:
+            pass
+
+    return "sk-nb9k0555HY4nZ7b3FFWTwC2Ryv0YxVdTkNviFvnCeTRyWGtR"
 
 
 class BaseModelProvider(ABC):
@@ -237,15 +258,17 @@ class OpenAICompatibleProvider(BaseModelProvider):
         self.max_backoff_seconds = max_backoff_seconds
         self._client = client
         self._owns_client = client is None
+        self._client_lock = threading.Lock()
 
     def _get_client(self) -> httpx.Client:
-        if self._client is None or self._client.is_closed:
-            self._client = httpx.Client(
-                timeout=self.timeout,
-                limits=httpx.Limits(max_keepalive_connections=10, max_connections=20),
-            )
-            self._owns_client = True
-        return self._client
+        with self._client_lock:
+            if self._client is None or self._client.is_closed:
+                self._client = httpx.Client(
+                    timeout=self.timeout,
+                    limits=httpx.Limits(max_keepalive_connections=10, max_connections=20),
+                )
+                self._owns_client = True
+            return self._client
 
     def close(self):
         if self._client is not None and self._owns_client and not self._client.is_closed:

@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 from core.config import PipelineConfig, get_model_family
+from core.workspace import get_git_dir
 from core.runtime import DSHRuntime
 from context.builder import ContextBuilder
 from task.schema import TaskDefinition, RiskLevel, TransactionResult
@@ -423,7 +424,7 @@ Respond ONLY with a valid JSON object (no prose, no markdown fences) matching ex
 
         # 2. PHA 2 & 3: Iterate over tasks with Dev Subagent + Pipeline Sandbox
         context_builder = ContextBuilder()
-        self._run_dir = self.target_repo / ".git" / "dsh_runs" / f"run_{int(time.time())}"
+        self._run_dir = get_git_dir(self.target_repo) / "dsh_runs" / f"run_{int(time.time())}"
         self._manifest_init(self._run_dir)
 
         for task in audit_report.tasks:
@@ -469,8 +470,13 @@ Respond ONLY with a valid JSON object (no prose, no markdown fences) matching ex
             except Exception:
                 pass
 
-            # Ensure test file is allowed in untracked paths if created
-            allowed_untracked = [task.test_file] if (test_created and task.test_file) else None
+            # Ensure test file AND holdout file are allowed in untracked paths if created
+            _untracked = []
+            if test_created and task.test_file:
+                _untracked.append(task.test_file)
+            if task.holdout_test_file and task.holdout_test_code:
+                _untracked.append(task.holdout_test_file)
+            allowed_untracked = _untracked or None
             runtime.allowed_untracked_paths = allowed_untracked
 
             task_def = TaskDefinition(

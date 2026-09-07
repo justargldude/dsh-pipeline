@@ -7,7 +7,12 @@ import subprocess
 from typing import Any, Dict, List, Optional
 from pathlib import Path
 
-from model.providers import OpenAICompatibleProvider, BaseModelProvider, MockModelProvider
+from model.providers import (
+    OpenAICompatibleProvider,
+    BaseModelProvider,
+    MockModelProvider,
+    resolve_tokenrouter_api_key,
+)
 from model.schemas import ModelRequest, ModelResponse, ModelType
 from task.schema import PatchProposal, FilePatch, PatchHunk
 
@@ -199,19 +204,25 @@ def create_qa_client(model_or_cli: str, test_mode: bool = False) -> SubagentClie
         if ask_qwen:
             return SubagentClient(name="qwen", cli_command=[ask_qwen], test_mode=False)
 
-    # 6. Fallback router: 'ask' CLI
+    # 6. GLM / TokenRouter
+    if any(k in name for k in ["glm", "tokenrouter", "z-ai"]):
+        ask_glm = shutil.which("ask-glm")
+        if ask_glm:
+            return SubagentClient(name="glm", cli_command=[ask_glm], test_mode=False)
+
+    # 7. Fallback router: 'ask' CLI
     ask_router = shutil.which("ask")
     if ask_router:
         return SubagentClient(name=name, cli_command=[ask_router, "-m", name], test_mode=False)
 
-    # 7. Fallback to direct binary if named matches something in PATH
+    # 8. Fallback to direct binary if named matches something in PATH
     bin_path = shutil.which(name)
     if bin_path:
         return SubagentClient(name=name, cli_command=[bin_path], test_mode=False)
 
     raise RuntimeError(
         f"Could not resolve CLI for QA model '{name}'. "
-        f"Available CLIs in PATH: ask, ask-agy, ask-claude, ask-codex, ask-ds, ask-qwen."
+        f"Available CLIs in PATH: ask, ask-agy, ask-claude, ask-codex, ask-ds, ask-qwen, ask-glm."
     )
 
 
@@ -244,6 +255,20 @@ def create_dev_provider(
         )
 
     name = (model_or_cli or "deepseek").lower().strip()
+
+    if any(k in name for k in ["glm", "tokenrouter", "z-ai"]):
+        base_url = os.environ.get("TOKENROUTER_BASE_URL", "https://api.tokenrouter.com/v1")
+        api_key = os.environ.get("TOKENROUTER_API_KEY") or resolve_tokenrouter_api_key()
+        model = "z-ai/glm-5.3-free"
+        if "glm" in name and "/" in name:
+            model = name
+        return OpenAICompatibleProvider(
+            api_key=api_key,
+            base_url=base_url,
+            fast_model=model,
+            reasoning_model=model,
+            timeout_seconds=int(os.environ.get("TOKENROUTER_TIMEOUT", "180")),
+        )
 
     if "qwen" in name:
         base_url = os.environ.get("QWEN_BASE_URL", "http://127.0.0.1:8200/v1")

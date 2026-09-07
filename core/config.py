@@ -41,6 +41,8 @@ def get_model_family(model_name: str) -> str:
         return "anthropic"
     if any(k in name for k in ["gpt", "openai", "codex", "o1", "o3", "o4"]):
         return "openai"
+    if any(k in name for k in ["glm", "zhipu", "z-ai", "tokenrouter"]):
+        return "zhipu"
     if "mock" in name or "test" in name:
         return f"mock_{name}"
     return f"unknown_{name}"
