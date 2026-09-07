@@ -19,6 +19,40 @@ from recovery.classifier import FailureType
 from task.schema import PatchProposal, FilePatch, PatchHunk
 
 
+def _parse_subagent_timeout_env() -> int:
+    """Parses DSH_SUBAGENT_TIMEOUT defensively: invalid values fall back to
+    the default (600s) instead of crashing at import/class-definition time."""
+    raw = os.environ.get("DSH_SUBAGENT_TIMEOUT", "600")
+    try:
+        val = int(raw)
+        if val <= 0:
+            raise ValueError
+        return val
+    except ValueError:
+        logger.warning(
+            "Invalid DSH_SUBAGENT_TIMEOUT=%r; falling back to default 600s.", raw
+        )
+        return 600
+
+
+def _is_muse_name(name: str) -> bool:
+    """True iff the model name is a Muse Spark model.
+
+    Matches the "muse" substring, but explicitly excludes other families'
+    names that merely contain "muse"/"spark" as a substring (e.g. a
+    hypothetical codex or claude model named "...-spark"). This makes the
+    anti-hijack guarantee explicit rather than relying on branch order.
+    """
+    other_family_markers = (
+        "codex", "gpt", "openai", "claude", "anthropic",
+        "gemini", "agy", "antigravity", "deepseek", "ds",
+        "qwen", "glm", "zhipu", "z-ai", "tokenrouter", "xkiro",
+    )
+    if any(marker in name for marker in other_family_markers):
+        return False
+    return "muse" in name
+
+
 class SubagentCLIModelProvider(BaseModelProvider):
     """Dev provider backed by a CLI subagent (e.g. ask-muse for Muse Spark).
 
@@ -35,14 +69,17 @@ class SubagentCLIModelProvider(BaseModelProvider):
     ):
         self.cli_command = list(cli_command)
         self.model_name = model_name
-        self.timeout = timeout_seconds or int(os.environ.get("DSH_SUBAGENT_TIMEOUT", "600"))
+        self.timeout = timeout_seconds or _parse_subagent_timeout_env()
 
     def generate(self, req: ModelRequest) -> ModelResponse:
         prompt = f"{req.system_prompt}\n\n{req.user_prompt}"
         try:
+            # Prompt goes via stdin (input=), not argv: keeps large prompts
+            # off the process table (ps) and avoids ARG_MAX truncation.
+            # input= pipes stdin (never a TTY), preserving the no-hang contract.
             proc = subprocess.run(
-                self.cli_command + [prompt],
-                stdin=subprocess.DEVNULL,
+                self.cli_command,
+                input=prompt,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
@@ -98,7 +135,7 @@ class SubagentClient:
     for QA, auditing, planning, or review.
     """
 
-    DEFAULT_QUERY_TIMEOUT = int(os.environ.get("DSH_SUBAGENT_TIMEOUT", "600"))
+    DEFAULT_QUERY_TIMEOUT = _parse_subagent_timeout_env()
 
     def __init__(
         self,
@@ -162,13 +199,15 @@ class SubagentClient:
                 "Ensure the required CLI is installed in PATH."
             )
 
-        cmd = list(self.cli_command) + [prompt]
+        # Prompt goes via stdin (input=), not argv: keeps large prompts off
+        # the process table (ps) and avoids ARG_MAX truncation. input= pipes
+        # stdin (never a TTY), preventing interactive permission-prompt hangs.
+        cmd = list(self.cli_command)
         try:
             logger.info(f"[SUBAGENT:{self.name}] Executing command: {cmd[:3]}... (timeout={timeout}s)")
-            # CRITICAL: stdin=subprocess.DEVNULL prevents hanging on interactive permission prompts!
             proc = subprocess.run(
                 cmd,
-                stdin=subprocess.DEVNULL,
+                input=prompt,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
@@ -286,12 +325,18 @@ def create_qa_client(model_or_cli: str, test_mode: bool = False) -> SubagentClie
             return SubagentClient(name="xkiro", cli_command=[ask_router, "-m", "xkiro"], test_mode=False)
 
     # 5c. Muse Spark (opencode provider, via ask-muse wrapper).
-    # NOTE: matches "muse" only (not bare "spark", to avoid hijacking
-    # e.g. "openai/gpt-5.3-codex-spark").
-    if "muse" in name or name in ("muse-spark", "spark"):
+    # NOTE: matches "muse" only — bare "spark" (e.g. in other model names such
+    # as openai/gpt-5.3-codex-spark) must NOT hijack to the muse wrapper, and
+    # codex/claude-family names containing "muse" stay with their own family.
+    if _is_muse_name(name):
         ask_muse = shutil.which("ask-muse")
-        if ask_muse:
-            return SubagentClient(name="muse-spark", cli_command=[ask_muse], test_mode=False)
+        if not ask_muse:
+            raise RuntimeError(
+                f"ask-muse CLI not found in PATH for QA model '{name}' (muse-spark). "
+                "Install the ask-muse wrapper or choose another model; refusing "
+                "to silently fall back to a different backend."
+            )
+        return SubagentClient(name="muse-spark", cli_command=[ask_muse], test_mode=False)
 
     # 6. GLM / TokenRouter
     if any(k in name for k in ["glm", "tokenrouter", "z-ai"]):
@@ -380,15 +425,20 @@ def create_dev_provider(
 
     # Muse Spark has no OpenAI-compatible endpoint (opencode provider only),
     # so Dev goes through the ask-muse CLI wrapper instead.
-    # NOTE: matches "muse" only (not bare "spark", to avoid hijacking
-    # e.g. "openai/gpt-5.3-codex-spark").
-    if "muse" in name or name in ("muse-spark", "spark"):
+    # NOTE: matches "muse" only — bare "spark" (e.g. in other model names such
+    # as openai/gpt-5.3-codex-spark) must NOT hijack to the muse wrapper.
+    if _is_muse_name(name):
         ask_muse = shutil.which("ask-muse")
-        if ask_muse:
-            return SubagentCLIModelProvider(
-                cli_command=[ask_muse],
-                model_name="muse-spark",
+        if not ask_muse:
+            raise RuntimeError(
+                f"ask-muse CLI not found in PATH for Dev model '{name}' (muse-spark). "
+                "Install the ask-muse wrapper or choose another model; refusing "
+                "to silently fall back to a different backend."
             )
+        return SubagentCLIModelProvider(
+            cli_command=[ask_muse],
+            model_name="muse-spark",
+        )
 
     if "qwen" in name:
         base_url = os.environ.get("QWEN_BASE_URL", "http://127.0.0.1:8200/v1")

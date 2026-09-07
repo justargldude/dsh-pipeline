@@ -9,6 +9,8 @@ Covers:
 - SubagentCLIModelProvider contract: system+user prompt concat, PatchProposal
   parsing, timeout handling
 """
+import os
+import shutil
 import subprocess
 import pytest
 from core.config import get_model_family
@@ -59,6 +61,49 @@ def test_codex_spark_not_hijacked_to_muse():
     assert not any("ask-muse" in cmd for cmd in client.cli_command)
 
 
+def test_bare_spark_not_hijacked_to_muse():
+    """Regression: bare 'spark' must NOT resolve to muse (comment/behavior
+    contract; get_model_family('spark') != 'muse' and factories agree)."""
+    client = create_qa_client("spark")
+    assert client.name != "muse-spark"
+    assert not any("ask-muse" in cmd for cmd in client.cli_command)
+
+
+def test_muse_named_other_family_models_not_hijacked():
+    """Explicit-exclusion anti-hijack: a hypothetical model of another family
+    containing 'muse'/'spark' (e.g. 'muse-spark-codex') stays with codex —
+    never the ask-muse wrapper (independent of branch ordering)."""
+    for name in ("codex-muse-spark", "claude-muse", "gemini-muse", "muse-qwen"):
+        client = create_qa_client(name)
+        assert client.name != "muse-spark", f"{name} hijacked to muse"
+        assert not any("ask-muse" in cmd for cmd in client.cli_command), name
+
+
+def test_muse_qa_missing_ask_muse_fails_fast(monkeypatch):
+    """Missing ask-muse binary must raise a clear error instead of silently
+    falling back to a different backend (e.g. the generic 'ask' router)."""
+    orig_which = shutil.which
+
+    def fake_which(n):
+        return None if n == "ask-muse" else orig_which(n)
+
+    monkeypatch.setattr("orchestrator.subagents.shutil.which", fake_which)
+    with pytest.raises(RuntimeError, match="ask-muse CLI not found"):
+        create_qa_client("muse-spark")
+
+
+def test_muse_dev_missing_ask_muse_fails_fast(monkeypatch):
+    """Dev provider: missing ask-muse must fail fast (no silent router)."""
+    orig_which = shutil.which
+
+    def fake_which(n):
+        return None if n == "ask-muse" else orig_which(n)
+
+    monkeypatch.setattr("orchestrator.subagents.shutil.which", fake_which)
+    with pytest.raises(RuntimeError, match="ask-muse CLI not found"):
+        create_dev_provider("muse-spark")
+
+
 def _sample_proposal_json() -> str:
     return PatchProposal(
         patches=[
@@ -86,6 +131,7 @@ class TestSubagentCLIModelProvider:
         )
 
     def test_generate_parses_patch_proposal(self):
+        # /bin/echo ignores stdin and echoes argv, so pass the JSON as an arg.
         provider = SubagentCLIModelProvider(
             cli_command=["/bin/echo", _sample_proposal_json()],
             model_name="muse-spark",
@@ -113,11 +159,15 @@ class TestSubagentCLIModelProvider:
         provider = self._provider()
         req = ModelRequest(system_prompt="SYSTEM-PROMPT", user_prompt="USER-PROMPT")
         res = provider.generate(req)
-        assert "SYSTEM-PROMPT" in captured["cmd"][-1]
-        assert "USER-PROMPT" in captured["cmd"][-1]
+        # Prompt is passed via stdin (input=), not argv: keeps large prompts
+        # off the process table and avoids ARG_MAX truncation.
+        assert "SYSTEM-PROMPT" in captured["kwargs"]["input"]
+        assert "USER-PROMPT" in captured["kwargs"]["input"]
+        assert "SYSTEM-PROMPT" not in captured["cmd"][-1]
         assert res.patch_proposal is not None
-        # stdin must be DEVNULL to prevent permission hangs
-        assert captured["kwargs"]["stdin"] == subprocess.DEVNULL
+        # input= pipes stdin (never an interactive TTY); no stdin= override
+        # needed, and none may be passed alongside input=.
+        assert "stdin" not in captured["kwargs"]
 
     def test_generate_timeout_returns_failure_response(self, monkeypatch):
         def fake_run(cmd, **kwargs):
@@ -162,6 +212,49 @@ class TestSubagentCLIModelProvider:
         res = provider.generate(ModelRequest(system_prompt="S", user_prompt="U"))
         assert res.patch_proposal is None
         assert res.failure_type == FailureType.MODEL_FORMAT_ERROR
+
+
+class TestSubagentTimeoutEnvParsing:
+    def test_invalid_env_falls_back_to_default(self, monkeypatch):
+        """DSH_SUBAGENT_TIMEOUT=garbage must not crash at import/definition
+        time — falls back to the 600s default with a warning."""
+        from orchestrator import subagents as S
+
+        monkeypatch.setenv("DSH_SUBAGENT_TIMEOUT", "garbage")
+        assert S._parse_subagent_timeout_env() == 600
+        monkeypatch.setenv("DSH_SUBAGENT_TIMEOUT", "-5")
+        assert S._parse_subagent_timeout_env() == 600
+        monkeypatch.setenv("DSH_SUBAGENT_TIMEOUT", "0")
+        assert S._parse_subagent_timeout_env() == 600
+
+    def test_valid_env_is_used(self, monkeypatch):
+        from orchestrator import subagents as S
+
+        monkeypatch.setenv("DSH_SUBAGENT_TIMEOUT", "42")
+        assert S._parse_subagent_timeout_env() == 42
+
+    def test_invalid_env_does_not_break_import(self):
+        """Regression: garbage DSH_SUBAGENT_TIMEOUT used to crash the whole
+        module import (ValueError at class-body evaluation)."""
+        import subprocess as sp
+
+        r = sp.run(
+            ["python3", "-c", "import orchestrator.subagents"],
+            capture_output=True,
+            text=True,
+            env={**os.environ, "DSH_SUBAGENT_TIMEOUT": "garbage"},
+        )
+        assert r.returncode == 0, r.stderr
+
+    def test_invalid_env_defaults_for_new_instances(self, monkeypatch):
+        """New provider/client instances get the safe default, not a crash."""
+        from orchestrator import subagents as S
+
+        monkeypatch.setenv("DSH_SUBAGENT_TIMEOUT", "garbage")
+        provider = S.SubagentCLIModelProvider(
+            cli_command=["/bin/true"], model_name="muse-spark"
+        )
+        assert provider.timeout == 600
 
 
 def test_muse_cross_family_vs_other_models(tmp_path):
