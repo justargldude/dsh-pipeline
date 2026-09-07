@@ -85,6 +85,26 @@ def resolve_tokenrouter_api_key() -> str:
     return "sk-nb9k0555HY4nZ7b3FFWTwC2Ryv0YxVdTkNviFvnCeTRyWGtR"
 
 
+def resolve_xkiro_api_key() -> str:
+    """Auto-sync API key for Xkiro (qwen/qwen3.8-max:free) from env or ~/.dsh/.credentials.yaml."""
+    if os.environ.get("XKIRO_API_KEY"):
+        return os.environ["XKIRO_API_KEY"].strip()
+
+    cred_file = Path.home() / ".dsh" / ".credentials.yaml"
+    if cred_file.exists():
+        try:
+            with open(cred_file, "r", encoding="utf-8") as f:
+                data = yaml.safe_load(f) or {}
+                if isinstance(data, dict):
+                    refs = data.get("refs", {})
+                    if "XKIRO_API_KEY" in refs:
+                        return str(refs["XKIRO_API_KEY"]).strip()
+        except Exception:
+            pass
+
+    return "sk-xt-daf1c81d707ce7921ecae1d12369a17af8309041f07d9807"
+
+
 class BaseModelProvider(ABC):
     @abstractmethod
     def generate(self, req: ModelRequest) -> ModelResponse:

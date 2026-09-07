@@ -453,12 +453,12 @@ def orchestrate(
     qa: Optional[str] = typer.Option(
         None,
         "--qa",
-        help="Subagent/model for QA (Scout, Architect, Reviewer). Options: agy, claude, codex, deepseek, qwen, glm, or specific model.",
+        help="Subagent/model for QA (Scout, Architect, Reviewer). Options: agy, claude, codex, deepseek, qwen, xkiro, glm, or specific model.",
     ),
     dev: Optional[str] = typer.Option(
         None,
         "--dev",
-        help="Subagent/model for Dev (Coder, Patch Generator). Options: deepseek, codex, claude, agy, qwen, glm, or specific model.",
+        help="Subagent/model for Dev (Coder, Patch Generator). Options: deepseek, codex, claude, agy, qwen, xkiro, glm, or specific model.",
     ),
     max_tasks: int = typer.Option(3, "--max-tasks", help="Maximum TDD tasks to generate and execute"),
     dry_run: bool = typer.Option(True, "--dry-run/--commit", help="Validate in sandbox without committing (default)"),
@@ -485,13 +485,13 @@ def orchestrate(
             if not qa_model:
                 qa_model = Prompt.ask(
                     "[bold magenta]Choose QA model[/bold magenta] (Auditor/Reviewer)",
-                    choices=["agy", "claude", "codex", "deepseek", "qwen", "glm"],
+                    choices=["agy", "claude", "codex", "deepseek", "qwen", "xkiro", "glm"],
                     default="agy",
                 )
             if not dev_model:
                 dev_model = Prompt.ask(
                     "[bold blue]Choose Dev model[/bold blue] (Coder)",
-                    choices=["deepseek", "codex", "claude", "agy", "qwen", "glm"],
+                    choices=["deepseek", "codex", "claude", "agy", "qwen", "xkiro", "glm"],
                     default="deepseek",
                 )
         else:

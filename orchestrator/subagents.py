@@ -12,6 +12,7 @@ from model.providers import (
     BaseModelProvider,
     MockModelProvider,
     resolve_tokenrouter_api_key,
+    resolve_xkiro_api_key,
 )
 from model.schemas import ModelRequest, ModelResponse, ModelType
 from task.schema import PatchProposal, FilePatch, PatchHunk
@@ -204,6 +205,16 @@ def create_qa_client(model_or_cli: str, test_mode: bool = False) -> SubagentClie
         if ask_qwen:
             return SubagentClient(name="qwen", cli_command=[ask_qwen], test_mode=False)
 
+    # 5b. Xkiro (cloud qwen via api.xkiro.com)
+    if any(k in name for k in ["xkiro", "xk"]):
+        ask_xkiro = shutil.which("ask-xkiro")
+        if ask_xkiro:
+            return SubagentClient(name="xkiro", cli_command=[ask_xkiro], test_mode=False)
+        # Fallback: use 'ask' router with xkiro model
+        ask_router = shutil.which("ask")
+        if ask_router:
+            return SubagentClient(name="xkiro", cli_command=[ask_router, "-m", "xkiro"], test_mode=False)
+
     # 6. GLM / TokenRouter
     if any(k in name for k in ["glm", "tokenrouter", "z-ai"]):
         ask_glm = shutil.which("ask-glm")
@@ -222,7 +233,7 @@ def create_qa_client(model_or_cli: str, test_mode: bool = False) -> SubagentClie
 
     raise RuntimeError(
         f"Could not resolve CLI for QA model '{name}'. "
-        f"Available CLIs in PATH: ask, ask-agy, ask-claude, ask-codex, ask-ds, ask-qwen, ask-glm."
+        f"Available CLIs in PATH: ask, ask-agy, ask-claude, ask-codex, ask-ds, ask-qwen, ask-xkiro, ask-glm."
     )
 
 
@@ -268,6 +279,25 @@ def create_dev_provider(
             fast_model=model,
             reasoning_model=model,
             timeout_seconds=int(os.environ.get("TOKENROUTER_TIMEOUT", "180")),
+        )
+
+    # Xkiro — cloud qwen endpoint (qwen/qwen3.8-max:free via api.xkiro.com)
+    if any(k in name for k in ["xkiro", "xk"]):
+        base_url = os.environ.get("XKIRO_BASE_URL", "https://api.xkiro.com/v1")
+        api_key = os.environ.get("XKIRO_API_KEY") or resolve_xkiro_api_key()
+        fast_model = "qwen/qwen3.8-max:free"
+        reasoning_model = "qwen/qwen3.8-max:free"
+        # Allow overriding the model by name, e.g. --dev xkiro/qwen3.7-plus:free
+        if "/" in name and name != "xkiro":
+            # e.g. "xkiro/qwen3.7-plus:free" -> model = "qwen3.7-plus:free"
+            fast_model = name.split("/", 1)[1] if name.startswith("xkiro/") else name
+            reasoning_model = fast_model
+        return OpenAICompatibleProvider(
+            api_key=api_key,
+            base_url=base_url,
+            fast_model=fast_model,
+            reasoning_model=reasoning_model,
+            timeout_seconds=int(os.environ.get("XKIRO_TIMEOUT", "180")),
         )
 
     if "qwen" in name:
