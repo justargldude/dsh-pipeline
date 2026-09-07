@@ -15,7 +15,77 @@ from model.providers import (
     resolve_xkiro_api_key,
 )
 from model.schemas import ModelRequest, ModelResponse, ModelType
+from recovery.classifier import FailureType
 from task.schema import PatchProposal, FilePatch, PatchHunk
+
+
+class SubagentCLIModelProvider(BaseModelProvider):
+    """Dev provider backed by a CLI subagent (e.g. ask-muse for Muse Spark).
+
+    Shells out to the CLI with "<system>\\n\\n<user>" as the prompt and parses
+    the PatchProposal from stdout. Used for models with no OpenAI-compatible
+    endpoint (opencode provider). stdin=DEVNULL prevents permission hangs.
+    """
+
+    def __init__(
+        self,
+        cli_command: List[str],
+        model_name: str = "muse-spark",
+        timeout_seconds: Optional[int] = None,
+    ):
+        self.cli_command = list(cli_command)
+        self.model_name = model_name
+        self.timeout = timeout_seconds or int(os.environ.get("DSH_SUBAGENT_TIMEOUT", "600"))
+
+    def generate(self, req: ModelRequest) -> ModelResponse:
+        prompt = f"{req.system_prompt}\n\n{req.user_prompt}"
+        try:
+            proc = subprocess.run(
+                self.cli_command + [prompt],
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=self.timeout,
+            )
+        except subprocess.TimeoutExpired:
+            return ModelResponse(
+                raw_content="",
+                patch_proposal=None,
+                tokens_used=0,
+                model_name=self.model_name,
+                failure_type=FailureType.TIMEOUT,
+                error=f"CLI '{self.cli_command[0]}' timed out after {self.timeout}s.",
+            )
+        except Exception as e:
+            return ModelResponse(
+                raw_content="",
+                patch_proposal=None,
+                tokens_used=0,
+                model_name=self.model_name,
+                failure_type=FailureType.UNKNOWN_PROVIDER_ERROR,
+                error=f"CLI '{self.cli_command[0]}' launch failed: {e}",
+            )
+        raw = (proc.stdout or "").strip()
+        if proc.returncode != 0 and not raw:
+            return ModelResponse(
+                raw_content=raw,
+                patch_proposal=None,
+                tokens_used=0,
+                model_name=self.model_name,
+                failure_type=FailureType.UNKNOWN_PROVIDER_ERROR,
+                error=f"CLI exited {proc.returncode}: {(proc.stderr or '')[:300]}",
+            )
+        proposal, f_type, err_msg = self.extract_patch_proposal_structured(raw)
+        return ModelResponse(
+            raw_content=raw,
+            patch_proposal=proposal,
+            failure_type=f_type,
+            error=err_msg,
+            tokens_used=0,
+            model_name=self.model_name,
+        )
+
 
 logger = logging.getLogger("dsh.orchestrator.subagents")
 
@@ -215,6 +285,14 @@ def create_qa_client(model_or_cli: str, test_mode: bool = False) -> SubagentClie
         if ask_router:
             return SubagentClient(name="xkiro", cli_command=[ask_router, "-m", "xkiro"], test_mode=False)
 
+    # 5c. Muse Spark (opencode provider, via ask-muse wrapper).
+    # NOTE: matches "muse" only (not bare "spark", to avoid hijacking
+    # e.g. "openai/gpt-5.3-codex-spark").
+    if "muse" in name or name in ("muse-spark", "spark"):
+        ask_muse = shutil.which("ask-muse")
+        if ask_muse:
+            return SubagentClient(name="muse-spark", cli_command=[ask_muse], test_mode=False)
+
     # 6. GLM / TokenRouter
     if any(k in name for k in ["glm", "tokenrouter", "z-ai"]):
         ask_glm = shutil.which("ask-glm")
@@ -233,7 +311,7 @@ def create_qa_client(model_or_cli: str, test_mode: bool = False) -> SubagentClie
 
     raise RuntimeError(
         f"Could not resolve CLI for QA model '{name}'. "
-        f"Available CLIs in PATH: ask, ask-agy, ask-claude, ask-codex, ask-ds, ask-qwen, ask-xkiro, ask-glm."
+        f"Available CLIs in PATH: ask, ask-agy, ask-claude, ask-codex, ask-ds, ask-qwen, ask-xkiro, ask-glm, ask-muse."
     )
 
 
@@ -299,6 +377,18 @@ def create_dev_provider(
             reasoning_model=reasoning_model,
             timeout_seconds=int(os.environ.get("XKIRO_TIMEOUT", "180")),
         )
+
+    # Muse Spark has no OpenAI-compatible endpoint (opencode provider only),
+    # so Dev goes through the ask-muse CLI wrapper instead.
+    # NOTE: matches "muse" only (not bare "spark", to avoid hijacking
+    # e.g. "openai/gpt-5.3-codex-spark").
+    if "muse" in name or name in ("muse-spark", "spark"):
+        ask_muse = shutil.which("ask-muse")
+        if ask_muse:
+            return SubagentCLIModelProvider(
+                cli_command=[ask_muse],
+                model_name="muse-spark",
+            )
 
     if "qwen" in name:
         base_url = os.environ.get("QWEN_BASE_URL", "http://127.0.0.1:8200/v1")

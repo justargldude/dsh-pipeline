@@ -43,6 +43,8 @@ def get_model_family(model_name: str) -> str:
         return "openai"
     if any(k in name for k in ["glm", "zhipu", "z-ai", "tokenrouter"]):
         return "zhipu"
+    if "muse" in name:
+        return "muse"
     if "mock" in name or "test" in name:
         return f"mock_{name}"
     return f"unknown_{name}"
