@@ -257,6 +257,34 @@ class TestSubagentTimeoutEnvParsing:
         assert provider.timeout == 600
 
 
+def test_prover_cli_wiring_cross_family():
+    """CLI --prover wiring: prover uses create_qa_client (any CLI model) and
+    must be resolvable; agy (antigravity) is a valid prover choice with a
+    family different from xkiro/qwen Dev."""
+    from core.config import get_model_family
+
+    client = create_qa_client("agy")
+    assert client.name == "antigravity" or "agy" in (client.cli_command[0] if client.cli_command else "")
+    # Cross-family: prover agy (google) vs dev xkiro (alibaba) — must differ
+    assert get_model_family("agy") != get_model_family("xkiro")
+
+
+def test_prover_same_family_as_dev_is_rejected(tmp_path):
+    """Regression: --prover in the same family as Dev must be rejected by
+    the coordinator's cross-family enforcement (fresh-eyes requirement)."""
+    from orchestrator.coordinator import AutonomousCoordinator
+
+    with pytest.raises(ValueError, match="prover"):
+        AutonomousCoordinator(
+            target_repo=tmp_path,
+            qa_name="muse-spark",
+            dev_name="qwen3.8-max",  # alibaba family
+            test_mode=True,
+            prover_name="qwen3.8",  # also alibaba -> must be rejected
+            prover_client=create_qa_client("qwen", test_mode=False) if shutil.which("ask-qwen") else None,
+        )
+
+
 def test_muse_cross_family_vs_other_models(tmp_path):
     """muse (own family) + deepseek -> passes; muse + muse -> fails."""
     from orchestrator.coordinator import AutonomousCoordinator

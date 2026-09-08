@@ -460,6 +460,11 @@ def orchestrate(
         "--dev",
         help="Subagent/model for Dev (Coder, Patch Generator). Options: deepseek, codex, claude, agy, qwen, xkiro, glm, muse-spark, or specific model.",
     ),
+    prover: Optional[str] = typer.Option(
+        None,
+        "--prover",
+        help="Optional second reviewer (adversarial Security Prover): reviews the diff for exploits and reward-hacking ONLY — never writes code or tests. Must be a different model family than Dev (enforced). E.g. agy, claude, codex, deepseek, qwen, glm, muse-spark.",
+    ),
     max_tasks: int = typer.Option(3, "--max-tasks", help="Maximum TDD tasks to generate and execute"),
     dry_run: bool = typer.Option(True, "--dry-run/--commit", help="Validate in sandbox without committing (default)"),
     test_mode: bool = typer.Option(False, "--test-mode", help="Run with mock subagents for verification"),
@@ -467,12 +472,14 @@ def orchestrate(
     """Run full autonomous TDD loop with user-selected QA subagent and Dev subagent."""
     from rich.markdown import Markdown
     from orchestrator.coordinator import AutonomousCoordinator
+    from orchestrator.subagents import create_qa_client
 
     resolved_repo = target_repo.resolve()
 
     # Dynamic resolution: Never hardcode QA or Dev models!
     qa_model = qa or os.environ.get("DSH_QA_MODEL")
     dev_model = dev or os.environ.get("DSH_DEV_MODEL")
+    prover_model = prover or os.environ.get("DSH_PROVER_MODEL")
 
     if test_mode:
         qa_model = qa_model or "mock-qa"
@@ -508,7 +515,8 @@ def orchestrate(
     console.print(f"[bold green]Starting Autonomous Orchestration on:[/bold green] {resolved_repo}")
     console.print(f"[bold cyan]Goal:[/bold cyan] {goal}")
     console.print(f"[bold magenta]QA (Lead/Reviewer):[/bold magenta] {qa_model} | [bold blue]Dev (Coder):[/bold blue] {dev_model}")
-    console.print(f"[dim]Dry-run: {dry_run} | Max tasks: {max_tasks}[/dim]\n")
+    prover_note = f" | [bold red]Prover (2nd reviewer):[/bold red] {prover_model}" if prover_model else ""
+    console.print(f"[dim]Dry-run: {dry_run} | Max tasks: {max_tasks}[/dim]{prover_note}\n")
 
     coordinator = AutonomousCoordinator(
         target_repo=resolved_repo,
@@ -516,6 +524,8 @@ def orchestrate(
         dev_name=dev_model,
         dry_run=dry_run,
         test_mode=test_mode,
+        prover_name=prover_model or "security-prover",
+        prover_client=create_qa_client(prover_model, test_mode=False) if prover_model else None,
     )
 
     result = coordinator.run(user_goal=goal, max_tasks=max_tasks)
