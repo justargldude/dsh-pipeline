@@ -269,16 +269,19 @@ def create_qa_client(model_or_cli: str, test_mode: bool = False) -> SubagentClie
 
     # 1. Antigravity / Gemini
     if name in ["agy", "antigravity", "gemini"] or "gemini" in name:
-        # Prefer direct agy with --dangerously-skip-permissions to prevent permission hangs
+        # Prefer the ask-agy wrapper: it accepts prompts via stdin (the
+        # pipeline sends prompts on stdin, not argv) and handles model
+        # fallback chains. The direct agy binary's --print needs the prompt
+        # as an argument and cannot read stdin, so it is only a fallback.
+        ask_agy = shutil.which("ask-agy")
+        if ask_agy:
+            return SubagentClient(name="antigravity", cli_command=[ask_agy], test_mode=False)
         agy_bin = shutil.which("agy")
         if agy_bin:
             cmd = [agy_bin, "--dangerously-skip-permissions", "--print"]
             if "flash" in name or "pro" in name:
                 cmd.extend(["--model", name])
             return SubagentClient(name="antigravity", cli_command=cmd, test_mode=False)
-        ask_agy = shutil.which("ask-agy")
-        if ask_agy:
-            return SubagentClient(name="antigravity", cli_command=[ask_agy], test_mode=False)
 
     # 2. Claude / Anthropic
     if name in ["claude", "sonnet", "opus"] or "claude" in name:

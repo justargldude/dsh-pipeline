@@ -4,6 +4,7 @@ import pytest
 
 from task.schema import TaskDefinition, PatchProposal, FilePatch, PatchHunk
 from core.runtime import DSHRuntime
+from core.config import PipelineConfig
 from core.workspace import (
     WorkspaceManager,
     TransactionWorktree,
@@ -352,3 +353,59 @@ def test_cleanup_failure_reported_explicitly(temp_git_repo: Path, monkeypatch):
     assert result.cleanup_error is not None
     assert "Simulated disk error" in result.cleanup_error
     assert "CLEANUP_FAILED" in result.error_message
+
+
+# 14. capture_diff: modified + untracked files, before discard
+def test_capture_diff_modified_and_untracked(temp_git_repo: Path):
+    """capture_diff must return a unified diff covering BOTH modified files
+    and new (untracked) files, captured before the worktree is discarded —
+    dry-run QA/Prover reviews need the real diff, not a placeholder."""
+    ws = WorkspaceManager(temp_git_repo)
+    base = ws.get_head_commit()
+    wt = ws.create_transaction_worktree("tx_diff_test", base)
+
+    (wt.worktree_path / "Player.cs").write_text("public class Player { public int X = 2; }")
+    (wt.worktree_path / "NewTest.cs").write_text("public class NewTest {}")
+
+    diff = wt.capture_diff()
+    assert "Player.cs" in diff
+    assert "X = 2" in diff
+    assert "NewTest.cs" in diff, "untracked files must appear as new-file diffs"
+    assert diff.startswith("diff --git"), "must be a unified git diff"
+
+    ws.remove_transaction_worktree(wt)
+
+
+# 15. capture_diff: truncation bound
+def test_capture_diff_truncates_large_diffs(temp_git_repo: Path):
+    """Very large diffs are truncated to bound reviewer prompt size."""
+    ws = WorkspaceManager(temp_git_repo)
+    base = ws.get_head_commit()
+    wt = ws.create_transaction_worktree("tx_diff_big", base)
+
+    big = "\n".join(f"line {i}" for i in range(200_000))
+    (wt.worktree_path / "big.txt").write_text(big)
+
+    diff = wt.capture_diff(max_bytes=64 * 1024)
+    assert len(diff.encode()) <= 70 * 1024  # bound + truncation marker
+    assert "[diff truncated]" in diff
+
+    ws.remove_transaction_worktree(wt)
+
+
+# 16. Dry-run TransactionResult carries the real worktree diff
+def test_dry_run_result_carries_worktree_diff(temp_git_repo: Path):
+    """Dry-run must surface the real diff (worktree_diff) instead of only a
+    placeholder string, so QA review verifies actual changes."""
+    config = PipelineConfig(workspace_root=temp_git_repo, build_command=["true"], test_command=["true"])
+    runtime = DSHRuntime(temp_git_repo, config=config, dry_run=True, test_mode=False)
+    task = TaskDefinition(task_id="T_DRY_DIFF", title="Dry-run diff test", allowed_files=["Player.cs"])
+    proposal = PatchProposal(
+        patches=[FilePatch(file="Player.cs", hunks=[PatchHunk(old_text="public void Update() {}", new_text="public void Update() { /* v2 */ }")])]
+    )
+    result = runtime.execute_transaction(task, proposal)
+    assert result.success is True
+    assert result.dry_run is True
+    assert result.worktree_diff is not None
+    assert "Player.cs" in result.worktree_diff
+    assert "v2" in result.worktree_diff

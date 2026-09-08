@@ -521,8 +521,13 @@ Respond ONLY with a valid JSON object (no prose, no markdown fences) matching ex
             review_verdict: Optional[Dict[str, Any]] = None
 
             if tx_res.success:
-                # Capture diff for QA review
-                if tx_res.commit_hash:
+                # Capture diff for QA review: prefer the diff captured from
+                # the worktree BEFORE it was discarded (dry-run), else git
+                # diff of the commit; only fall back to a placeholder when
+                # neither is available — reviewers see real changes.
+                if getattr(tx_res, "worktree_diff", None):
+                    diff_content = tx_res.worktree_diff
+                elif tx_res.commit_hash:
                     try:
                         diff_proc = subprocess.run(
                             ["git", "diff", f"{tx_res.commit_hash}^!", "--"],
@@ -534,7 +539,7 @@ Respond ONLY with a valid JSON object (no prose, no markdown fences) matching ex
                     except Exception:
                         diff_content = f"Committed at: {tx_res.commit_hash}"
                 elif tx_res.dry_run:
-                    diff_content = "[DRY_RUN: Verified in sandbox worktree]"
+                    diff_content = "[DRY_RUN: Verified in sandbox worktree — no diff captured]"
 
                 # 3. PHA 4: Review by QA Subagent (+ Security Prover, v2.3 D1)
                 review_verdict = self._review_diff_with_qa(task, diff_content)

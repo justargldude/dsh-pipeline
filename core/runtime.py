@@ -650,6 +650,13 @@ PACT / DESIGN-BY-CONTRACT (MANDATORY):
 
             # 7. Dry-Run Check
             if self.dry_run:
+                # Capture the real diff BEFORE discarding the worktree so
+                # QA/Prover review actual changes, not a placeholder string.
+                captured_diff = ""
+                try:
+                    captured_diff = tx_worktree.capture_diff()
+                except Exception as diff_err:
+                    self._log_event(PipelineEvent.ROLLBACK, task.task_id, f"[DRY-RUN] diff capture failed: {diff_err}")
                 self.session_tracker.release(tx_id)
                 self.ws.journal.update_state(tx_id, TransactionState.DISCARDED)
                 cleanup_err = self._safe_cleanup_worktree(tx_worktree, task.task_id)
@@ -660,6 +667,7 @@ PACT / DESIGN-BY-CONTRACT (MANDATORY):
                     success=True,
                     base_commit=base_commit,
                     dry_run=True,
+                    worktree_diff=captured_diff or None,
                     cleanup_error=cleanup_err,
                     events=events,
                     integration_status="DRY_RUN",

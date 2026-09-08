@@ -82,4 +82,8 @@ class TransactionResult(BaseModel):
     failure_type: Optional[str] = None
     error_message: Optional[str] = None
     dry_run: bool = False
+    # Full unified diff of the transaction's changes, captured inside the
+    # worktree BEFORE it is discarded (dry-run) or integrated. Lets QA and
+    # the Security Prover review the real changes instead of a placeholder.
+    worktree_diff: Optional[str] = None
     events: List[str] = Field(default_factory=list)
