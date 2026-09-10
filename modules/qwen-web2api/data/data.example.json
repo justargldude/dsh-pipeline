@@ -1,0 +1,10 @@
+{
+  "accounts": [
+    {
+      "email": "your-qwen-account",
+      "password": "",
+      "token": "__DANH_JWT_TOKEN_DAY__",
+      "expired": "YYYY-MM-DDTHH:MM:SS"
+    }
+  ]
+}

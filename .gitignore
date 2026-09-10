@@ -1,0 +1,11 @@
+secrets/
+modules/qwen-web2api/node_modules/
+modules/qwen-web2api/logs/
+modules/qwen-web2api/caches/
+modules/qwen-web2api/data/data.json
+modules/qwen-web2api/.env
+modules/oc-proxy/logs/
+*.log
+*.pid
+__pycache__/
+*.pyc

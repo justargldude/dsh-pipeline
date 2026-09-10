@@ -1,0 +1,36 @@
+llm-pi-ai:
+  providers:
+    tokenrouter:
+      displayName: TokenRouter
+      apiKeyEnv: TOKENROUTER_API_KEY
+      api: openai-completions
+      baseURL: https://api.tokenrouter.com/v1
+      retryPolicy:
+        mode: always
+        backoff:
+          initialDelayMs: 3000
+          maxDelayMs: 65000
+          jitterRatio: 0.1
+      models:
+        - id: z-ai/glm-5.3-free
+          name: GLM 5.3 (TokenRouter Free Reasoning)
+          contextWindow: 262144
+          maxTokens: 16384
+    omniroute:
+      displayName: OmniRoute Local Gateway
+      apiKeyEnv: OMNIROUTE_API_KEY
+      api: openai-completions
+      baseURL: http://127.0.0.1:20128/v1
+      models:
+        - id: auto/best-chat
+          name: OmniRoute Auto Best Chat (free-tier routed)
+          contextWindow: 131072
+          maxTokens: 8192
+        - id: oc/muse-spark-1.2-contributor-free
+          name: Muse Spark 1.2 (free via OmniRoute)
+          contextWindow: 131072
+          maxTokens: 8192
+        - id: oc/deepseek-v4-flash-free
+          name: DeepSeek V4 Flash (free via OmniRoute)
+          contextWindow: 131072
+          maxTokens: 8192

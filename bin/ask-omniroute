@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# ask-omniroute — stdin prompt → OmniRoute chat, in message content.
+# Usage: echo "<prompt>" | ask-omniroute [model] (default: auto/best-coding)
+set -euo pipefail
+MODEL="${1:-auto/best-coding}"
+BASE="${OMNIROUTE_BASE_URL:-http://127.0.0.1:20128/v1}"
+KEY="${OMNIROUTE_API_KEY:-}"
+if [ -z "$KEY" ]; then
+  KEY="$(python3 -c 'import yaml,os;print((yaml.safe_load(open(os.path.expanduser("~/.dsh/.credentials.yaml"))).get("refs") or {}).get("OMNIROUTE_API_KEY",""))')"
+fi
+PROMPT="$(cat)"
+BODY="$(mktemp /tmp/ask-omniroute-$$-body.XXXXXX.json)"
+trap 'rm -f "$BODY"' EXIT
+ASK_PROMPT="$PROMPT" ASK_MODEL="$MODEL" python3 -c 'import json,os;print(json.dumps({"model":os.environ["ASK_MODEL"],"messages":[{"role":"user","content":os.environ["ASK_PROMPT"]}],"stream":False}))' > "$BODY"
+if ! RESP="$(curl -sS -m 300 -X POST "$BASE/chat/completions" -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" --data @"$BODY")"; then
+  RC=$?
+  echo "LỖI: curl $BASE/chat/completions fail rc=$RC" >&2
+  exit $RC
+fi
+printf '%s' "$RESP" | python3 -c '
+import sys, json
+d = json.load(sys.stdin)
+if d.get("error"):
+    print(json.dumps(d["error"], ensure_ascii=False), file=sys.stderr); sys.exit(1)
+if not d.get("choices"):
+    print("LỖI: response không có choices", file=sys.stderr); sys.exit(1)
+print(d["choices"][0]["message"]["content"])'
