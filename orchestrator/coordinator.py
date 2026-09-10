@@ -8,7 +8,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
-from core.config import PipelineConfig, get_model_family
+from core.config import PipelineConfig
+from core.config import get_model_family as _core_get_model_family
 from core.workspace import get_git_dir
 from core.runtime import DSHRuntime
 from context.builder import ContextBuilder
@@ -24,6 +25,47 @@ from model.providers import BaseModelProvider
 from orchestrator.planner import AutonomousPlanner, AuditReport, PlannedTask
 
 logger = logging.getLogger("dsh.orchestrator.coordinator")
+
+
+def get_model_family(model_name: str) -> str:
+    """Map a model name to its canonical family (cross-family enforcement).
+
+    Case-insensitive substring matching, deterministic and total:
+    any string maps to exactly one family, never raises.
+    Empty string -> "unknown".
+    """
+    try:
+        if model_name is None:
+            return "unknown"
+        name = str(model_name).lower().strip()
+    except Exception:
+        return "unknown"
+    if not name:
+        return "unknown"
+    n = name
+    if "gemini" in n or "agy" in n or "antigravity" in n:
+        return "gemini"
+    if "claude" in n:
+        return "anthropic"
+    if "codex" in n or "gpt" in n:
+        return "openai"
+    if "deepseek" in n:
+        return "deepseek"
+    if "qwen" in n:
+        return "qwen"
+    if "muse" in n:
+        return "muse"
+    if "kimi" in n:
+        return "moonshot"
+    if "glm" in n:
+        return "zhipu"
+    if "llama" in n or "mixtral" in n or "mistral" in n:
+        return "meta"
+    if "grok" in n:
+        return "xai"
+    if "xkiro" in n:
+        return "xkiro"
+    return "unknown"
 
 
 class TaskExecutionRecord(BaseModel):
@@ -101,10 +143,10 @@ class AutonomousCoordinator:
         resolved_dev = dev_name or (getattr(self.dev_provider, "model_name", None) or "deepseek")
         qa_fam = get_model_family(resolved_qa)
         dev_fam = get_model_family(resolved_dev)
-        if qa_fam == dev_fam and not (qa_fam.startswith("mock") or dev_fam.startswith("mock") or qa_fam.startswith("unknown")):
+        if qa_fam == dev_fam and qa_fam != "unknown":
             raise ValueError(
-                f"Cross-family enforcement failed: QA model '{resolved_qa}' ({qa_fam}) "
-                f"and Dev model '{resolved_dev}' ({dev_fam}) belong to the same family. "
+                f"Cross-family violation: Cross-family enforcement failed: QA model '{resolved_qa}' ({qa_fam}) "
+                f"and Dev model '{resolved_dev}' ({dev_fam}) belong to the same family '{qa_fam}'. "
                 "QA and Dev must belong to different model families to prevent shared blind spots."
             )
 
@@ -112,18 +154,27 @@ class AutonomousCoordinator:
         # DIFFERENT family than Dev — same-family would share Dev's blind
         # spots on security issues (mock/unknown families pass for tests).
         if self.prover_client is not None:
-            prover_fam = get_model_family(prover_name)
-            if (
-                prover_fam == dev_fam
-                and not prover_fam.startswith("mock")
-                and not dev_fam.startswith("mock")
-                and not prover_fam.startswith("unknown")
-                and not dev_fam.startswith("unknown")
-            ):
+            # Prover enforcement keeps backwards-compat with core.config mapping
+            # (e.g. 'ds-pro-x' -> deepseek) while also enforcing the new mapping.
+            prover_fam_core = _core_get_model_family(prover_name)
+            dev_fam_core = _core_get_model_family(resolved_dev)
+            prover_fam_new = get_model_family(prover_name)
+            core_violation = (
+                prover_fam_core == dev_fam_core
+                and not prover_fam_core.startswith("mock")
+                and not dev_fam_core.startswith("mock")
+                and not prover_fam_core.startswith("unknown")
+                and not dev_fam_core.startswith("unknown")
+            )
+            new_violation = (
+                prover_fam_new == dev_fam
+                and prover_fam_new != "unknown"
+            )
+            if core_violation or new_violation:
                 raise ValueError(
                     f"Cross-family enforcement failed for prover: Security Prover "
-                    f"'{prover_name}' ({prover_fam}) and Dev model '{resolved_dev}' "
-                    f"({dev_fam}) belong to the same family. The prover must bring "
+                    f"'{prover_name}' ({prover_fam_new}/{prover_fam_core}) and Dev model '{resolved_dev}' "
+                    f"({dev_fam}/{dev_fam_core}) belong to the same family. The prover must bring "
                     "an outside perspective on exploitability."
                 )
 

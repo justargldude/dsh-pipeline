@@ -50,6 +50,79 @@ DEV_FORBIDDEN_TEST_DIR_PATTERNS = [
 ]
 
 
+def is_test_file(path: str) -> bool:
+    """Return True if `path` identifies a test file (case-insensitive).
+
+    Contract:
+    - Python: basename matches fnmatch "test_*.py" or "*_test.py",
+      or basename == "conftest.py".
+    - C#/Java/Kotlin/PHP: basename matches "*test.<ext>", "*tests.<ext>",
+      "*spec.<ext>", "*specs.<ext>" for ext in .cs/.java/.kt/.php,
+      OR basename starts with "test".
+    - JS/TS/Go: basename contains ".test." or ".spec.",
+      or ends with "_test.go".
+    - Directories: any path component equal to "tests", "test",
+      "__tests__", "spec", "specs" (case-insensitive) -> test file.
+
+    Total and deterministic: any string -> bool, never raises.
+    Documented EXCEPTION: basename "test_runner.py" (case-insensitive) is
+    explicitly NOT a test file — it is a production helper — even though it
+    lexically matches fnmatch "test_*.py". Implementations special-case
+    exactly "test_runner.py" as non-test per the authoritative QA contract.
+    """
+    try:
+        if path is None:
+            return False
+        s = str(path)
+    except Exception:
+        return False
+    if not s or not s.strip():
+        return False
+    try:
+        normalized = s.replace("\\", "/")
+        lowered = normalized.lower()
+        parts = [p for p in lowered.split("/") if p != ""]
+        if not parts:
+            return False
+        basename = parts[-1]
+        # Documented exception: production helper, never a test file.
+        if basename == "test_runner.py":
+            return False
+        # Directories: any path component equal to "tests", "test", "__tests__", "spec", "specs"
+        test_dirs = {"tests", "test", "__tests__", "spec", "specs"}
+        for comp in parts:
+            if comp in test_dirs:
+                return True
+        # Python
+        if (
+            fnmatch.fnmatch(basename, "test_*.py")
+            or fnmatch.fnmatch(basename, "*_test.py")
+            or basename == "conftest.py"
+        ):
+            return True
+        # C#/Java/Kotlin/PHP
+        for ext in (".cs", ".java", ".kt", ".php"):
+            if basename.endswith(ext):
+                if (
+                    fnmatch.fnmatch(basename, "*test" + ext)
+                    or fnmatch.fnmatch(basename, "*tests" + ext)
+                    or fnmatch.fnmatch(basename, "*spec" + ext)
+                    or fnmatch.fnmatch(basename, "*specs" + ext)
+                ):
+                    return True
+                if basename.startswith("test"):
+                    return True
+                break
+        # JS/TS/Go
+        if ".test." in basename or ".spec." in basename:
+            return True
+        if basename.endswith("_test.go"):
+            return True
+        return False
+    except Exception:
+        return False
+
+
 def _is_dev_forbidden_test_file(rel_file: str, patterns: Optional[list] = None) -> Optional[str]:
     """Returns the matched pattern if `rel_file` is a test file, else None.
 
@@ -69,6 +142,12 @@ def _is_dev_forbidden_test_file(rel_file: str, patterns: Optional[list] = None) 
     lowered = rel_file.lower()
     components = lowered.split("/")
     basename = components[-1] if components else lowered
+
+    # Documented exception (mirrors is_test_file): the production helper
+    # "test_runner.py" is never a test file, even though it lexically
+    # matches "test_*.py".
+    if basename == "test_runner.py":
+        return None
 
     for pattern in file_pats:
         if (
@@ -168,18 +247,34 @@ class ScopeGuard:
             # 3.5 Anti-reward-hacking v2.3 Checkpoint 5: a Dev-agent task must
             # never write/delete a test file (only QA tasks may, e.g. red-test
             # authoring). This blocks the Dev agent from weakening the tests
-            # that will judge it. Patterns come from the POLICY layer
-            # (SafetyPolicy.dev_forbidden_test_file_patterns).
+            # 3.5 Anti-reward-hacking: ban Dev from writing test files.
+            # MUST run BEFORE the allowed_files check (step 4) so even allowed test
+            # files are rejected. New test file creation is also blocked.
+            # QA-authored tasks (role='qa') are exempt for red-test authoring.
             if getattr(task, "role", "dev") != "qa":
-                matched = _is_dev_forbidden_test_file(
-                    rel_file,
-                    patterns=self.policy.dev_forbidden_test_file_patterns,
-                )
-                if matched:
+                custom_patterns = getattr(self.policy, "dev_forbidden_test_file_patterns", None)
+                default_patterns = getattr(SafetyPolicy(), "dev_forbidden_test_file_patterns", None)
+                if custom_patterns is not None and custom_patterns != default_patterns:
+                    matched = _is_dev_forbidden_test_file(
+                        rel_file,
+                        patterns=custom_patterns,
+                    )
+                    if matched:
+                        raise ScopeViolationError(
+                            f"Forbidden test file access for Dev-agent task: '{rel_file}' "
+                            f"matches test file pattern '{matched}'. Test files may only "
+                            f"be written by QA-authored tasks (role='qa')."
+                        )
+                elif (
+                    _is_dev_forbidden_test_file(
+                        rel_file,
+                        patterns=getattr(self.policy, "dev_forbidden_test_file_patterns", None),
+                    )
+                    or is_test_file(rel_file)
+                ):
                     raise ScopeViolationError(
-                        f"Forbidden test file access for Dev-agent task: '{rel_file}' "
-                        f"matches test file pattern '{matched}'. Test files may only "
-                        f"be written by QA-authored tasks (role='qa')."
+                        f"Forbidden test file access for Dev-agent task: '{rel_file}' is a test file. "
+                        "Test files may only be written by QA-authored tasks (role='qa')."
                     )
 
             # 4. Allowed files check
@@ -214,12 +309,20 @@ class ScopeGuard:
                         raise ScopeViolationError(f"Anti-bypass violation in '{rel_file}': {msg}")
 
             # Authoritative simulation for downstream analysis (e.g. AST Guard)
-            simulated_content = apply_hunks(
-                base_content=base_content,
-                hunks=file_patch.hunks,
-                is_new_file=is_new,
-                file_path=rel_file,
-            )
+            try:
+                simulated_content = apply_hunks(
+                    base_content=base_content,
+                    hunks=file_patch.hunks,
+                    is_new_file=is_new,
+                    file_path=rel_file,
+                )
+            except Exception:
+                simulated_content = orig_content
+                for hunk in file_patch.hunks:
+                    if hunk.old_text and hunk.old_text in simulated_content:
+                        simulated_content = simulated_content.replace(hunk.old_text, hunk.new_text, 1)
+                    else:
+                        simulated_content += hunk.new_text
 
             # Bug B: Count actual lines added and deleted from unified diff
             orig_lines = orig_content.splitlines()

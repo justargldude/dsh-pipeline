@@ -301,5 +301,397 @@
         "description": "Sao chép toàn bộ biến môi trường của host OS vào process chạy lệnh build/test. Chưa có cơ chế whitelist lọc bỏ các biến môi trường nhạy cảm (như API tokens, secrets, credentials). Đây là vị trí duy nhất trong build/sandbox.py sử dụng os.environ."
       }
     ]
+  },
+  "cli.py": {
+    "description": "Tập hợp 12 symbol: hàm `_load_json` (dòng 24); hàm `_load_env_file` (dòng 57); hàm `_prepare_model_runtime` (dòng 75); hàm `_collect_file_snippets` (dòng 108); hàm `_print_transaction_result` (dòng 127); hàm `run` (dòng 146); hàm `demo` (dòng 201); hàm `model` (dòng 251); hàm `recover` (dòng 276); hàm `dag` (dòng 301); hàm `prompt` (dòng 375); hàm `orchestrate` (dòng 450)",
+    "symbol_count": 12
+  },
+  "context/budget.py": {
+    "description": "Tập hợp 11 symbol: class `ContextComplexity` (dòng 7); thuộc tính `SIMPLE` (dòng 8); thuộc tính `NORMAL` (dòng 9); thuộc tính `COMPLEX` (dòng 10); thuộc tính `RECOVERY` (dòng 11); thuộc tính `UNLIMITED` (dòng 12); class `ContextBudgetExceededError` (dòng 15); class `TokenBudgetManager` (dòng 20); phương thức `get_budget` (dòng 36); phương thức `compute_available_budget` (dòng 42); phương thức `estimate_tokens` (dòng 58)",
+    "symbol_count": 11
+  },
+  "context/builder.py": {
+    "description": "Tập hợp 11 symbol: hằng số `HOLDOUT_FILE_PATTERNS` (dòng 18); hằng số `_HOLDOUT_REDACTED_PLACEHOLDER` (dòng 24); hằng số `HOLDOUT_MARKER` (dòng 30); hàm `is_holdout_test_file` (dòng 33); hàm `_mentions_holdout` (dòng 46); hàm `redact_holdout_references` (dòng 56); class `ContextManifest` (dòng 89); class `ContextBuilder` (dòng 100); phương thức `__init__` (dòng 101); phương thức `build_context_with_manifest` (dòng 106); phương thức `build_context` (dòng 300)",
+    "symbol_count": 11
+  },
+  "context/extractor.py": {
+    "description": "Tập hợp 6 symbol: class `ExtractedSourceResult` (dòng 8); phương thức `__init__` (dòng 9); class `SymbolExtractor` (dòng 22); phương thức `__init__` (dòng 25); phương thức `_normalize_symbol_name` (dòng 31); phương thức `extract_relevant_source` (dòng 36)",
+    "symbol_count": 6
+  },
+  "context/ranking.py": {
+    "description": "Tập hợp 20 symbol: class `PriorityLevel` (dòng 7); thuộc tính `TASK_DEFINITION` (dòng 9); thuộc tính `TARGET_SOURCE` (dòng 10); thuộc tính `TARGET_SYMBOLS` (dòng 11); thuộc tính `DIRECT_CALLERS_CALLEES` (dòng 14); thuộc tính `RELEVANT_EVIDENCE` (dòng 15); thuộc tính `FAILURE_HISTORY` (dòng 18); thuộc tính `ADVISORY_MEMORY` (dòng 19); thuộc tính `DISTANT_REPO_CONTEXT` (dòng 20); thuộc tính `TARGET_SYMBOL_EVIDENCE` (dòng 23); thuộc tính `RELATED_FIELDS_TYPES` (dòng 24); thuộc tính `CONSTANTS_STRINGS` (dòng 25); thuộc tính `RELEVANT_DIFF` (dòng 26); thuộc tính `PREVIOUS_VALIDATED_FIX` (dòng 27); class `ContextItem` (dòng 30); phương thức `__init__` (dòng 36); class `ContextRanker` (dòng 42); phương thức `is_mandatory` (dòng 44); phương thức `rank_and_trim_detailed` (dòng 48); phương thức `rank_and_trim` (dòng 83)",
+    "symbol_count": 20
+  },
+  "core/config.py": {
+    "description": "Tập hợp 3 symbol: class `PipelineConfig` (dòng 7); thuộc tính `model_config` (dòng 8); hàm `get_model_family` (dòng 26)",
+    "symbol_count": 3
+  },
+  "core/journal.py": {
+    "description": "Tập hợp 13 symbol: class `JournalRecord` (dòng 16); hàm `_get_git_dir` (dòng 26); class `TransactionJournal` (dòng 44); phương thức `__init__` (dòng 47); phương thức `_read_records` (dòng 57); phương thức `_write_records` (dòng 70); phương thức `record_start` (dòng 83); phương thức `update_state` (dòng 109); phương thức `flush` (dòng 124); phương thức `record_end` (dòng 140); phương thức `_apply_pending_overlay` (dòng 160); phương thức `list_active` (dòng 176); phương thức `get_orphaned` (dòng 180)",
+    "symbol_count": 13
+  },
+  "core/runtime.py": {
+    "description": "Tập hợp 12 symbol: hàm `_read_head_file_content` (dòng 48); class `DSHRuntime` (dòng 71); thuộc tính `SYSTEM_PROMPT` (dòng 72); thuộc tính `on_worktree_created` (dòng 108); phương thức `__init__` (dòng 110); phương thức `_log_event` (dòng 265); phương thức `_safe_cleanup_worktree` (dòng 275); phương thức `_retrieve_advisory_episodes` (dòng 287); phương thức `_store_success_episode` (dòng 318); phương thức `execute_with_recovery` (dòng 345); phương thức `execute_with_model` (dòng 363); phương thức `execute_transaction` (dòng 431)",
+    "symbol_count": 12
+  },
+  "core/state.py": {
+    "description": "Tập hợp 42 symbol: class `PipelineEvent` (dòng 7); thuộc tính `TASK_STARTED` (dòng 8); thuộc tính `CHECKPOINT_CREATED` (dòng 9); thuộc tính `WORKTREE_CREATED` (dòng 10); thuộc tính `BASELINE_CAPTURED` (dòng 11); thuộc tính `CONTEXT_BUILT` (dòng 12); thuộc tính `MODEL_REQUEST` (dòng 13); thuộc tính `MODEL_RESPONSE` (dòng 14); thuộc tính `PATCH_VALIDATED` (dòng 15); thuộc tính `SCOPE_PASSED` (dòng 16); thuộc tính `PATCH_APPLIED` (dòng 17); thuộc tính `BUILD_STARTED` (dòng 18); thuộc tính `BUILD_PASSED` (dòng 19); thuộc tính `BUILD_FAILED` (dòng 20); thuộc tính `FAILURE_CLASSIFIED` (dòng 21); thuộc tính `RECOVERY_STARTED` (dòng 22); thuộc tính `VALIDATION_PASSED` (dòng 23); thuộc tính `COMMIT_CREATED` (dòng 24); thuộc tính `ROLLBACK` (dòng 25); thuộc tính `TASK_COMPLETED` (dòng 26)...",
+    "symbol_count": 42
+  },
+  "core/workspace.py": {
+    "description": "Tập hợp 38 symbol: class `WorkspaceError` (dòng 19); class `WorktreeCleanupError` (dòng 23); class `WorktreeStagingError` (dòng 27); hàm `get_git_dir` (dòng 31); hàm `generate_transaction_id` (dòng 51); hàm `parse_porcelain_v1_z` (dòng 57); hàm `parse_diff_cached_name_only_z` (dòng 94); hàm `parse_diff_cached_name_status_z` (dòng 101); hằng số `GIT_DETERMINISTIC_ENV` (dòng 129); hàm `_run_git_subprocess` (dòng 136); class `TransactionWorktree` (dòng 170); phương thức `__init__` (dòng 173); phương thức `_invalidate_status_cache` (dòng 199); phương thức `_run_git` (dòng 207); phương thức `_run_git_bytes` (dòng 217); phương thức `capture_diff` (dòng 225); phương thức `get_head_commit` (dòng 263); phương thức `_get_status_bytes` (dòng 266); phương thức `get_status` (dòng 272); phương thức `is_clean` (dòng 284)...",
+    "symbol_count": 38
+  },
+  "memory/episodic.py": {
+    "description": "Tập hợp 11 symbol: class `EpisodeStatus` (dòng 8); thuộc tính `VALIDATED` (dòng 9); thuộc tính `STALE` (dòng 10); thuộc tính `DEPRECATED` (dòng 11); class `EpisodeValidation` (dòng 14); class `EpisodeRecord` (dòng 20); class `EpisodicMemoryStore` (dòng 34); phương thức `__init__` (dòng 35); phương thức `store_episode` (dòng 38); phương thức `get_all_episodes` (dòng 41); phương thức `get_by_symbol` (dòng 44)",
+    "symbol_count": 11
+  },
+  "memory/retrieval.py": {
+    "description": "Tập hợp 5 symbol: class `StaleDetector` (dòng 5); phương thức `check_staleness` (dòng 7); class `EpisodeRetriever` (dòng 14); phương thức `__init__` (dòng 15); phương thức `retrieve_advisory_episodes` (dòng 18)",
+    "symbol_count": 5
+  },
+  "model/providers.py": {
+    "description": "Tập hợp 17 symbol: hàm `resolve_deepseek_api_key` (dòng 20); hàm `resolve_tokenrouter_api_key` (dòng 68); hàm `resolve_xkiro_api_key` (dòng 88); class `BaseModelProvider` (dòng 108); phương thức `generate` (dòng 110); phương thức `extract_patch_proposal_structured` (dòng 114); phương thức `extract_patch_proposal` (dòng 189); class `MockModelProvider` (dòng 195); phương thức `__init__` (dòng 196); phương thức `generate` (dòng 215); class `OpenAICompatibleProvider` (dòng 258); phương thức `__init__` (dòng 259); phương thức `_get_client` (dòng 283); phương thức `close` (dòng 293); phương thức `__enter__` (dòng 298); phương thức `__exit__` (dòng 301); phương thức `generate` (dòng 304)",
+    "symbol_count": 17
+  },
+  "model/router.py": {
+    "description": "Tập hợp 2 symbol: class `ModelRouter` (dòng 7); phương thức `route` (dòng 9)",
+    "symbol_count": 2
+  },
+  "model/schemas.py": {
+    "description": "Tập hợp 5 symbol: class `ModelType` (dòng 7); thuộc tính `FAST` (dòng 8); thuộc tính `REASONING` (dòng 9); class `ModelRequest` (dòng 12); class `ModelResponse` (dòng 24)",
+    "symbol_count": 5
+  },
+  "orchestrator/coordinator.py": {
+    "description": "Tập hợp 20 symbol: hàm `get_model_family` (dòng 30); class `TaskExecutionRecord` (dòng 71); class `OrchestrationResult` (dòng 81); class `AutonomousCoordinator` (dòng 90); phương thức `__init__` (dòng 95); phương thức `_red_test_worktree_callback` (dòng 182); phương thức `_untracked_allowance_for_manifest` (dòng 193); phương thức `_manifest_init` (dòng 209); phương thức `_manifest_update` (dòng 223); phương thức `_manifest_atomic_write` (dòng 250); phương thức `_write_red_test_to_main` (dòng 254); phương thức `_ensure_red_test_in_worktree` (dòng 264); phương thức `_count_discovered_tests` (dòng 268); phương thức `_verify_red_test_discovered` (dòng 284); phương thức `_review_diff_with_qa` (dòng 313); phương thức `_review_diff_with_antigravity` (dòng 361); phương thức `_review_diff_with_prover` (dòng 365); phương thức `_verdicts_reject` (dòng 423); phương thức `_run_metamorphic_check` (dòng 428); phương thức `run` (dòng 464)",
+    "symbol_count": 20
+  },
+  "orchestrator/planner.py": {
+    "description": "Tập hợp 6 symbol: class `PlannedTask` (dòng 15); class `AuditReport` (dòng 36); class `AutonomousPlanner` (dòng 44); phương thức `__init__` (dòng 49); phương thức `inspect_repo_profile` (dòng 55); phương thức `audit_and_plan` (dòng 141)",
+    "symbol_count": 6
+  },
+  "orchestrator/subagents.py": {
+    "description": "Tập hợp 20 symbol: hàm `_parse_subagent_timeout_env` (dòng 22); hàm `_is_muse_name` (dòng 38); class `SubagentCLIModelProvider` (dòng 56); phương thức `__init__` (dòng 64); phương thức `generate` (dòng 74); class `SubagentClient` (dòng 131); thuộc tính `DEFAULT_QUERY_TIMEOUT` (dòng 138); phương thức `__init__` (dòng 140); phương thức `set_mock_response` (dòng 151); phương thức `query` (dòng 155); phương thức `query_json` (dòng 228); phương thức `_extract_json` (dòng 234); hàm `create_qa_client` (dòng 263); hàm `create_dev_provider` (dòng 366); class `AntigravityClient` (dòng 492); phương thức `__init__` (dòng 495); class `DeepSeekClient` (dòng 505); phương thức `__init__` (dòng 508); phương thức `set_mock_provider` (dòng 523); phương thức `get_provider` (dòng 526)",
+    "symbol_count": 20
+  },
+  "recon/database.py": {
+    "description": "Tập hợp 18 symbol: class `MatchState` (dòng 9); thuộc tính `MATCHED` (dòng 10); thuộc tính `AMBIGUOUS` (dòng 11); thuộc tính `UNMAPPED` (dòng 12); class `SymbolRecord` (dòng 15); class `CrossVersionMatchRecord` (dòng 26); class `EvidenceDatabase` (dòng 41); phương thức `__init__` (dòng 42); phương thức `_init_tables` (dòng 47); phương thức `insert_symbol` (dòng 96); phương thức `insert_call_edge` (dòng 115); phương thức `insert_mapping` (dòng 124); phương thức `get_symbol` (dòng 147); phương thức `get_symbols_by_name` (dòng 171); phương thức `get_callers` (dòng 190); phương thức `get_callees` (dòng 197); phương thức `get_best_mapping` (dòng 204); phương thức `close` (dòng 238)",
+    "symbol_count": 18
+  },
+  "recon/diff.py": {
+    "description": "Tập hợp 7 symbol: class `CrossVersionMatcher` (dòng 6); phương thức `__init__` (dòng 7); phương thức `compute_similarity` (dòng 18); phương thức `compute_jaccard` (dòng 26); phương thức `_extract_param_types` (dòng 38); phương thức `_compute_parameter_similarity` (dòng 55); phương thức `match_symbol` (dòng 70)",
+    "symbol_count": 7
+  },
+  "recon/evidence.py": {
+    "description": "Tập hợp 3 symbol: class `EvidenceService` (dòng 5); phương thức `__init__` (dòng 6); phương thức `get_symbol_evidence` (dòng 9)",
+    "symbol_count": 3
+  },
+  "recon/indexer.py": {
+    "description": "Tập hợp 5 symbol: class `SymbolIndexer` (dòng 9); phương thức `__init__` (dòng 10); phương thức `index_symbol_dict` (dòng 15); phương thức `index_call_edges` (dòng 28); phương thức `parse_il2cpp_dump_snippet` (dòng 32)",
+    "symbol_count": 5
+  },
+  "recovery/classifier.py": {
+    "description": "Tập hợp 34 symbol: class `FailureType` (dòng 9); thuộc tính `MODEL_FORMAT_ERROR` (dòng 11); thuộc tính `MODEL_CONTENT_INVALID` (dòng 12); thuộc tính `AUTH_ERROR` (dòng 13); thuộc tính `RATE_LIMIT` (dòng 14); thuộc tính `NETWORK_ERROR` (dòng 15); thuộc tính `SERVER_ERROR` (dòng 16); thuộc tính `TIMEOUT` (dòng 17); thuộc tính `UNKNOWN_PROVIDER_ERROR` (dòng 18); thuộc tính `ENV_TRANSIENT` (dòng 21); thuộc tính `PATCH_INVALID` (dòng 22); thuộc tính `SCOPE_VIOLATION` (dòng 23); thuộc tính `SYNTAX` (dòng 24); thuộc tính `TYPE_SEMANTIC` (dòng 25); thuộc tính `BEHAVIORAL` (dòng 26); thuộc tính `MUTATION_COVERAGE` (dòng 27); thuộc tính `CONFIG_MISSING` (dòng 28); thuộc tính `BUILD_FAILED` (dòng 29); thuộc tính `REGRESSION` (dòng 30); thuộc tính `PROCESS_FAILURE` (dòng 31)...",
+    "symbol_count": 34
+  },
+  "recovery/history.py": {
+    "description": "Tập hợp 5 symbol: class `AttemptRecord` (dòng 7); class `RecoveryHistory` (dòng 16); phương thức `record_attempt` (dòng 20); phương thức `_derive_lesson` (dòng 40); phương thức `format_history_for_prompt` (dòng 61)",
+    "symbol_count": 5
+  },
+  "recovery/manager.py": {
+    "description": "Tập hợp 4 symbol: class `RecoveryManager` (dòng 19); thuộc tính `MAX_ATTEMPTS` (dòng 20); phương thức `__init__` (dòng 22); phương thức `run_recovery_loop` (dòng 25)",
+    "symbol_count": 4
+  },
+  "safety/ast_guard.py": {
+    "description": "Tập hợp 8 symbol: class `ASTGuard` (dòng 41); thuộc tính `TAUTOLOGICAL_ASSERT_PATTERNS` (dòng 50); phương thức `__init__` (dòng 52); phương thức `_get_enclosing_type` (dòng 66); phương thức `_extract_symbols` (dòng 70); phương thức `_extract_assert_predicates` (dòng 74); phương thức `_check_early_return_and_stubs` (dòng 78); phương thức `validate_csharp_transition` (dòng 87)",
+    "symbol_count": 8
+  },
+  "safety/languages/base.py": {
+    "description": "Tập hợp 10 symbol: class `ASTViolationError` (dòng 13); dataclass `LanguageDriverContext` (dòng 24); class `BaseLanguageDriver` (dòng 36); phương thức `language_name` (dòng 51); phương thức `language` (dòng 57); phương thức `parser` (dòng 63); phương thức `extract_symbols` (dòng 68); phương thức `extract_assert_predicates` (dòng 78); phương thức `check_early_return_and_stubs` (dòng 83); phương thức `validate_transition` (dòng 91)",
+    "symbol_count": 10
+  },
+  "safety/languages/csharp.py": {
+    "description": "Tập hợp 25 symbol: dataclass `CSharpSymbol` (dòng 19); phương thức `qualified_name` (dòng 35); phương thức `full_qualified_name` (dòng 41); phương thức `signature` (dòng 51); phương thức `identity_key` (dòng 59); phương thức `matches_target` (dòng 66); class `CSharpDriver` (dòng 116); thuộc tính `TWO_ARG_TAUTOLOGY_CALLEES` (dòng 122); phương thức `__init__` (dòng 124); phương thức `_check_two_arg_tautology` (dòng 127); thuộc tính `PURITY_PATH_PREFIXES` (dòng 162); thuộc tính `PURITY_FORBIDDEN_CALLEES` (dòng 166); thuộc tính `PURITY_FORBIDDEN_RECEIVER_PATTERNS` (dòng 177); thuộc tính `PURITY_FORBIDDEN_CONSTRUCTIONS` (dòng 180); phương thức `_is_purity_scope` (dòng 182); phương thức `check_purity` (dòng 189); thuộc tính `TAUTOLOGICAL_ASSERT_PATTERNS` (dòng 314); phương thức `language_name` (dòng 324); phương thức `language` (dòng 328); phương thức `parser` (dòng 334)...",
+    "symbol_count": 25
+  },
+  "safety/languages/registry.py": {
+    "description": "Tập hợp 8 symbol: class `LanguageRegistry` (dòng 13); phương thức `__init__` (dòng 16); phương thức `register` (dòng 19); phương thức `get` (dòng 22); phương thức `available` (dòng 31); phương thức `detect_language` (dòng 34); hàm `get_language_driver` (dòng 51); hàm `get_default_registry` (dòng 58)",
+    "symbol_count": 8
+  },
+  "safety/patch_engine.py": {
+    "description": "Tập hợp 11 symbol: class `PatchValidationError` (dòng 13); hằng số `DEFAULT_MAX_FILE_SIZE_BYTES` (dòng 18); hằng số `DEFAULT_MAX_PATCH_SIZE_BYTES` (dòng 19); hằng số `DEFAULT_MAX_FILES_IN_PROPOSAL` (dòng 20); hàm `detect_newline_style` (dòng 23); hàm `atomic_write_file` (dòng 30); hàm `normalize_repo_path` (dòng 77); hàm `_locate_unique_match` (dòng 126); hàm `apply_hunks` (dòng 161); hàm `apply_file_patch` (dòng 250); hàm `validate_and_simulate_proposal` (dòng 264)",
+    "symbol_count": 11
+  },
+  "safety/patch_validator.py": {
+    "description": "Tập hợp 3 symbol: class `PatchValidator` (dòng 15); phương thức `parse_unified_diff` (dòng 17); phương thức `validate_proposal` (dòng 44)",
+    "symbol_count": 3
+  },
+  "safety/policy.py": {
+    "description": "Tập hợp 9 symbol: class `SafetyPolicy` (dòng 6); class `BudgetReservation` (dòng 69); class `SessionBudgetTracker` (dòng 77); phương thức `__init__` (dòng 78); phương thức `reserve` (dòng 86); phương thức `commit` (dòng 113); phương thức `release` (dòng 123); phương thức `check_and_add` (dòng 130); phương thức `reset` (dòng 153)",
+    "symbol_count": 9
+  },
+  "safety/scope_guard.py": {
+    "description": "Tập hợp 10 symbol: class `ScopeViolationError` (dòng 12); hằng số `DEV_FORBIDDEN_TEST_FILE_PATTERNS` (dòng 24); hằng số `DEV_FORBIDDEN_TEST_DIR_PATTERNS` (dòng 44); hàm `is_test_file` (dòng 53); hàm `_is_dev_forbidden_test_file` (dòng 126); class `ScopeGuard` (dòng 168); thuộc tính `SUSPICIOUS_PATTERNS` (dòng 169); phương thức `__init__` (dòng 175); phương thức `validate` (dòng 184); thuộc tính `validate_pre_apply` (dòng 369)",
+    "symbol_count": 10
+  },
+  "safety/tree_sitter_shared.py": {
+    "description": "Tập hợp 1 symbol: hàm `get_csharp_language` (dòng 14)",
+    "symbol_count": 1
+  },
+  "task/dag.py": {
+    "description": "Tập hợp 9 symbol: class `DAGCycleError` (dòng 6); class `DAGDependencyError` (dòng 10); class `TaskDAG` (dòng 14); phương thức `__init__` (dòng 15); phương thức `add_task` (dòng 20); phương thức `build_and_validate` (dòng 27); phương thức `get_descendants` (dòng 65); phương thức `get_ready_tasks` (dòng 77); phương thức `topological_sort` (dòng 93)",
+    "symbol_count": 9
+  },
+  "task/locks.py": {
+    "description": "Tập hợp 6 symbol: class `ResourceLockManager` (dòng 7); phương thức `__init__` (dòng 10); phương thức `can_acquire` (dòng 15); phương thức `acquire` (dòng 24); phương thức `release` (dòng 37); phương thức `reset` (dòng 45)",
+    "symbol_count": 6
+  },
+  "task/scheduler.py": {
+    "description": "Tập hợp 5 symbol: class `DAGExecutionSummary` (dòng 16); class `DAGScheduler` (dòng 25); phương thức `__init__` (dòng 26); phương thức `run_sequential` (dòng 32); phương thức `run_parallel` (dòng 97)",
+    "symbol_count": 5
+  },
+  "task/schema.py": {
+    "description": "Tập hợp 15 symbol: class `TaskRole` (dòng 6); thuộc tính `DEV` (dòng 12); thuộc tính `QA` (dòng 13); class `RiskLevel` (dòng 16); thuộc tính `LOW` (dòng 17); thuộc tính `MEDIUM` (dòng 18); thuộc tính `HIGH` (dòng 19); class `TaskDefinition` (dòng 22); phương thức `validate_non_empty_string` (dòng 35); class `PatchHunk` (dòng 41); phương thức `validate_hunk_semantics` (dòng 46); class `FilePatch` (dòng 54); phương thức `validate_file_path` (dòng 60); class `PatchProposal` (dòng 66); class `TransactionResult` (dòng 72)",
+    "symbol_count": 15
+  },
+  "taskqueue/cloud_worker.py": {
+    "description": "Tập hợp 7 symbol: class `CloudTaskItem` (dòng 17); class `CloudQueueWorker` (dòng 28); phương thức `__init__` (dòng 29); phương thức `fetch_pending_tasks` (dòng 42); phương thức `update_task_status` (dòng 55); phương thức `process_single_task` (dòng 76); phương thức `run_worker_loop` (dòng 116)",
+    "symbol_count": 7
+  },
+  "tests/context/test_context_builder.py": {
+    "description": "Tập hợp 3 symbol: hàm `test_token_budget_estimation` (dòng 8); hàm `test_context_ranking_and_trimming` (dòng 16); hàm `test_context_builder_output` (dòng 29)",
+    "symbol_count": 3
+  },
+  "tests/context/test_phase6_hardening.py": {
+    "description": "Tập hợp 15 symbol: hàm `recon_db` (dòng 19); hàm `test_large_target_file_still_provides_target_source` (dòng 26); hàm `test_history_cannot_crowd_out_target_source` (dòng 48); hàm `test_memory_cannot_crowd_out_task_and_source` (dòng 74); hàm `test_target_symbols_influence_source_extraction` (dòng 113); hàm `test_mandatory_context_is_always_present` (dòng 152); hàm `test_budget_exhaustion_causes_explicit_error` (dòng 177); hàm `test_missing_evidence_confidence_is_not_one` (dòng 199); hàm `test_model_cannot_game_confidence_into_fast_path` (dòng 215); hàm `test_overloaded_symbols_are_distinguished` (dòng 236); hàm `test_ambiguous_cross_version_match_rejected` (dòng 285); hàm `test_top1_top2_margin_enforced` (dòng 331); hàm `test_empty_caller_sets_return_zero_similarity` (dòng 378); hàm `test_stale_memory_excluded_by_default` (dòng 392); hàm `test_recovery_history_uses_concise_summaries` (dòng 419)",
+    "symbol_count": 15
+  },
+  "tests/memory/test_episodic_memory.py": {
+    "description": "Tập hợp 4 symbol: hàm `memory_store` (dòng 9); hàm `test_store_and_retrieve_episode` (dòng 35); hàm `test_stale_detection_and_exclusion` (dòng 45); hàm `test_context_builder_with_advisory_memory` (dòng 57)",
+    "symbol_count": 4
+  },
+  "tests/model/test_model_router.py": {
+    "description": "Tập hợp 7 symbol: hàm `temp_git_repo` (dòng 15); hàm `test_router_decisions` (dòng 29); hàm `test_extract_patch_proposal_from_markdown` (dòng 52); hàm `test_execute_with_model_success` (dòng 80); hàm `test_execute_with_model_malformed_output` (dòng 116); hàm `test_resolve_deepseek_api_key_env` (dòng 135); hàm `test_resolve_deepseek_api_key_from_dsh_settings` (dòng 141)",
+    "symbol_count": 7
+  },
+  "tests/model/test_router_escalation.py": {
+    "description": "Tập hợp 5 symbol: hàm `_task` (dòng 18); hàm `test_patch_invalid_on_first_retry_escalates_to_reasoning` (dòng 27); hàm `test_type_semantic_on_first_retry_escalates_to_reasoning` (dòng 42); hàm `test_syntax_failure_first_retry_may_stay_fast` (dòng 53); hàm `test_no_failure_high_confidence_stays_fast` (dòng 64)",
+    "symbol_count": 5
+  },
+  "tests/orchestrator/test_f03_ordering.py": {
+    "description": "Tập hợp 5 symbol: class `_Q` (dòng 15); thuộc tính `name` (dòng 16); phương thức `query` (dòng 17); hàm `_repo` (dòng 21); hàm `test_smoke_check_runs_before_write_to_main` (dòng 31)",
+    "symbol_count": 5
+  },
+  "tests/orchestrator/test_glm_tokenrouter.py": {
+    "description": "Tập hợp 4 symbol: hàm `test_glm_model_family` (dòng 9); hàm `test_glm_qa_client_resolution` (dòng 16); hàm `test_glm_dev_provider_resolution` (dòng 22); hàm `test_glm_cross_family_separation` (dòng 31)",
+    "symbol_count": 4
+  },
+  "tests/orchestrator/test_manifest.py": {
+    "description": "Tập hợp 7 symbol: class `_ScriptedQA` (dòng 16); thuộc tính `name` (dòng 17); phương thức `query` (dòng 19); hàm `_coordinator` (dòng 23); hàm `test_manifest_updated_with_task_states` (dòng 33); hàm `test_manifest_records_every_attempt` (dòng 53); hàm `test_manifest_created_atomically_and_is_valid_json` (dòng 69)",
+    "symbol_count": 7
+  },
+  "tests/orchestrator/test_manifest_isolation.py": {
+    "description": "Tập hợp 6 symbol: class `_StubQA` (dòng 11); thuộc tính `name` (dòng 12); phương thức `query` (dòng 14); hàm `_git_repo` (dòng 18); hàm `test_manifest_init_does_not_mutate_gitignore` (dòng 28); hàm `test_shadow_run_dir_outside_repo_does_not_crash_allowance` (dòng 46)",
+    "symbol_count": 6
+  },
+  "tests/orchestrator/test_manifest_wiring.py": {
+    "description": "Tập hợp 7 symbol: class `_ScriptedQA` (dòng 15); thuộc tính `name` (dòng 18); phương thức `__init__` (dòng 20); phương thức `query_json` (dòng 23); phương thức `query` (dòng 26); hàm `_repo` (dòng 30); hàm `test_run_creates_and_updates_manifest` (dòng 40)",
+    "symbol_count": 7
+  },
+  "tests/orchestrator/test_muse_spark.py": {
+    "description": "Tập hợp 26 symbol: hàm `test_muse_model_family` (dòng 28); hàm `test_muse_qa_client_resolution` (dòng 36); hàm `test_muse_qa_client_resolution_short_alias` (dòng 42); hàm `test_muse_dev_provider_resolution` (dòng 48); hàm `test_codex_spark_not_hijacked_to_muse` (dòng 55); hàm `test_bare_spark_not_hijacked_to_muse` (dòng 64); hàm `test_muse_named_other_family_models_not_hijacked` (dòng 72); hàm `test_muse_qa_missing_ask_muse_fails_fast` (dòng 82); hàm `test_muse_dev_missing_ask_muse_fails_fast` (dòng 95); hàm `_sample_proposal_json` (dòng 107); class `TestSubagentCLIModelProvider` (dòng 125); phương thức `_provider` (dòng 126); phương thức `test_generate_parses_patch_proposal` (dòng 133); phương thức `test_generate_concatenates_system_and_user` (dòng 148); phương thức `test_generate_timeout_returns_failure_response` (dòng 172); phương thức `test_generate_nonzero_exit_no_stdout_is_error` (dòng 183); phương thức `test_generate_stdout_forwarded_even_on_nonzero_exit` (dòng 194); phương thức `test_generate_unparseable_output_is_format_error` (dòng 206); class `TestSubagentTimeoutEnvParsing` (dòng 217); phương thức `test_invalid_env_falls_back_to_default` (dòng 218)...",
+    "symbol_count": 26
+  },
+  "tests/orchestrator/test_orchestrator.py": {
+    "description": "Tập hợp 8 symbol: hàm `test_antigravity_client_json_extraction` (dòng 18); hàm `test_planner_inspect_repo_profile` (dòng 32); hàm `test_planner_audit_and_plan` (dòng 50); hàm `test_autonomous_coordinator_end_to_end` (dòng 87); hàm `test_cli_orchestrate_command_test_mode` (dòng 165); hàm `test_cli_orchestrate_missing_models_error` (dòng 198); hàm `test_subagent_factories` (dòng 216); hàm `test_cli_prompt_inference_error_when_no_match` (dòng 226)",
+    "symbol_count": 8
+  },
+  "tests/orchestrator/test_planner_node_build.py": {
+    "description": "Tập hợp 5 symbol: class `_StubQA` (dòng 17); phương thức `query` (dòng 20); hàm `test_node_repo_with_build_script_infers_npm_run_build` (dòng 24); hàm `test_node_repo_without_build_script_falls_back_to_test_cmd` (dòng 43); hàm `test_node_repo_without_any_scripts_uses_node_test` (dòng 57)",
+    "symbol_count": 5
+  },
+  "tests/orchestrator/test_qa_round2_remediation.py": {
+    "description": "Tập hợp 21 symbol: class `_StubQA` (dòng 32); phương thức `query` (dòng 33); hàm `_git_repo` (dòng 37); hàm `_coordinator` (dòng 49); hàm `_task` (dòng 63); class `TestF01ManifestInAllowedUntracked` (dòng 76); phương thức `test_run_dir_in_allowed_untracked_paths` (dòng 77); phương thức `test_fresh_coordinator_allowance_is_none` (dòng 86); class `TestF02WorktreeCallbackWiring` (dòng 92); phương thức `test_runtime_has_on_worktree_created_hook` (dòng 93); phương thức `test_coordinator_installs_red_test_callback` (dòng 97); class `TestF03SmokeCheckLifecycle` (dòng 115); phương thức `test_smoke_check_counts_hidden_test_before_writing` (dòng 116); class `TestF04ParserRobustness` (dòng 138); phương thức `test_count_returns_none_on_unparseable_output` (dòng 139); phương thức `test_smoke_check_inert_when_runner_output_unparseable` (dòng 145); class `TestF05PlannerRobustness` (dòng 153); phương thức `test_malformed_package_json_still_yields_build_cmd` (dòng 154); phương thức `test_null_scripts_does_not_crash` (dòng 163); class `TestF06RealAttempts` (dòng 170)...",
+    "symbol_count": 21
+  },
+  "tests/orchestrator/test_qa_structured_review.py": {
+    "description": "Tập hợp 7 symbol: class `_ScriptedQA` (dòng 13); thuộc tính `name` (dòng 14); phương thức `__init__` (dòng 16); phương thức `query` (dòng 19); hàm `test_review_diff_with_qa_parses_valid_json_verdict` (dòng 23); hàm `test_review_diff_with_qa_rejects_legacy_prose_format` (dòng 43); hàm `test_review_diff_with_qa_validates_required_fields_and_types` (dòng 55)",
+    "symbol_count": 7
+  },
+  "tests/orchestrator/test_red_test_propagation.py": {
+    "description": "Tập hợp 13 symbol: hàm `_git_repo` (dòng 27); class `_ScriptedQA` (dòng 41); thuộc tính `name` (dòng 44); phương thức `query` (dòng 46); hàm `_coordinator` (dòng 50); hàm `_task_with_test` (dòng 60); class `TestRedTestReachesWorktree` (dòng 72); phương thức `test_prepare_red_test_copies_file_into_worktree` (dòng 75); phương thức `test_prepare_red_test_main_repo_clean` (dòng 99); class `TestDiscoverySmokeCheck` (dòng 110); phương thức `test_count_discovered_tests_counts_runner_output` (dòng 113); phương thức `test_smoke_check_raises_when_count_does_not_grow` (dòng 120); phương thức `test_verify_red_test_discovered_returns_false_for_invisible` (dòng 138)",
+    "symbol_count": 13
+  },
+  "tests/recon/test_recon_db.py": {
+    "description": "Tập hợp 3 symbol: hàm `recon_db` (dòng 9); hàm `test_symbol_indexing_and_retrieval` (dòng 15); hàm `test_cross_version_symbol_matching` (dòng 37)",
+    "symbol_count": 3
+  },
+  "tests/recovery/test_history_truncation.py": {
+    "description": "Tập hợp 1 symbol: hàm `test_format_history_preserves_root_cause_tail` (dòng 5)",
+    "symbol_count": 1
+  },
+  "tests/recovery/test_pending_integration_guard.py": {
+    "description": "Tập hợp 3 symbol: hàm `_make_task` (dòng 21); hàm `test_recovery_stops_when_commit_pending_integration` (dòng 29); hàm `test_recovery_retries_normal_build_failures_normally` (dòng 72)",
+    "symbol_count": 3
+  },
+  "tests/recovery/test_recovery_loop.py": {
+    "description": "Tập hợp 8 symbol: class `SequenceMockProvider` (dòng 15); phương thức `__init__` (dòng 17); phương thức `generate` (dòng 22); hàm `temp_git_repo` (dòng 34); hàm `test_recovery_success_attempt_1` (dòng 48); hàm `test_recovery_success_attempt_2` (dòng 77); hàm `test_recovery_hard_stop_on_scope_violation` (dòng 115); hàm `test_recovery_hard_halt` (dòng 143)",
+    "symbol_count": 8
+  },
+  "tests/safety/test_ast_guard.py": {
+    "description": "Tập hợp 7 symbol: hàm `ast_guard` (dòng 6); hàm `test_ast_allows_valid_hook` (dòng 10); hàm `test_ast_blocks_method_deletion` (dòng 29); hàm `test_ast_blocks_class_deletion` (dòng 47); hàm `test_ast_blocks_assertion_removal` (dòng 61); hàm `test_ast_blocks_early_return_bypass` (dòng 82); hàm `test_ast_blocks_not_implemented_bypass` (dòng 103)",
+    "symbol_count": 7
+  },
+  "tests/safety/test_atomic_write_mode.py": {
+    "description": "Tập hợp 4 symbol: hàm `test_atomic_write_preserves_executable_mode` (dòng 17); hàm `test_atomic_write_preserves_readonly_mode` (dòng 33); hàm `test_atomic_write_new_file_uses_default_mode` (dòng 44); hàm `test_atomic_write_mode_survives_crlf_normalization` (dòng 54)",
+    "symbol_count": 4
+  },
+  "tests/safety/test_cumulative_policy.py": {
+    "description": "Tập hợp 2 symbol: hàm `test_cumulative_budget_overflow` (dòng 8); hàm `test_scope_guard_blocks_forbidden_files` (dòng 22)",
+    "symbol_count": 2
+  },
+  "tests/safety/test_dev_directive.py": {
+    "description": "Tập hợp 1 symbol: hàm `test_dev_system_prompt_has_critical_reasoning_directive` (dòng 9)",
+    "symbol_count": 1
+  },
+  "tests/safety/test_patch_engine.py": {
+    "description": "Tập hợp 18 symbol: hàm `temp_git_repo` (dòng 19); hàm `test_old_text_exact_single_match` (dòng 42); hàm `test_old_text_zero_occurrences_rejects` (dòng 50); hàm `test_old_text_multiple_occurrences_rejects` (dòng 59); hàm `test_short_ambiguous_old_text_rejects` (dòng 68); hàm `test_long_ambiguous_old_text_rejects` (dòng 78); hàm `test_empty_old_text_on_existing_file_rejects` (dòng 88); hàm `test_empty_old_text_on_new_file_creates_file` (dòng 97); hàm `test_non_empty_old_text_on_new_file_rejects` (dòng 103); hàm `test_empty_creation_new_file_rejects_as_noop` (dòng 110); hàm `test_noop_hunk_identical_text_rejects` (dòng 117); hàm `test_noop_net_file_unchanged_rejects` (dòng 124); hàm `test_duplicate_filepatch_normalized_path_rejects` (dòng 136); hàm `test_sequential_hunks_deterministic` (dòng 153); hàm `test_second_hunk_invalid_after_first_rejects` (dòng 165); hàm `test_simulation_and_runtime_parity` (dòng 177); hàm `test_multiple_files_applied_independently` (dòng 218); hàm `test_path_normalization_and_traversal_rejection` (dòng 246)",
+    "symbol_count": 18
+  },
+  "tests/safety/test_scope_and_symbol_safety.py": {
+    "description": "Tập hợp 19 symbol: hàm `test_repo` (dòng 19); hàm `test_git_config_path_rejected` (dòng 48); hàm `test_nested_git_config_path_rejected` (dòng 55); hàm `test_traversal_path_rejected` (dòng 66); hàm `test_absolute_path_rejected` (dòng 77); hàm `test_symlink_escape_rejected` (dòng 88); hàm `test_path_normalization_consistency` (dòng 122); hàm `test_unauthorized_file_rejected` (dòng 133); hàm `test_target_symbol_mismatch_rejected` (dòng 154); hàm `test_target_symbol_correct_change_accepted` (dòng 178); hàm `test_overloaded_methods_distinguished` (dòng 199); hàm `test_one_line_legitimate_return_accepted` (dòng 235); hàm `test_generic_method_signature_handled` (dòng 256); hàm `test_assert_semantic_weakening_rejected` (dòng 275); hàm `test_actual_introduced_risk_detected` (dòng 299); hàm `test_high_risk_does_not_bypass_checks` (dòng 322); hàm `test_invalid_confidence_rejected` (dòng 344); hàm `test_negative_budget_rejected` (dòng 358); hàm `test_empty_and_noop_hunk_rejected` (dòng 376)",
+    "symbol_count": 19
+  },
+  "tests/safety/test_stage1_spi_refactor.py": {
+    "description": "Tập hợp 27 symbol: class `TestStage1SPIExists` (dòng 44); phương thức `test_languages_package_files_exist` (dòng 45); phương thức `test_csharp_driver_implements_base` (dòng 51); phương thức `test_registry_resolves_csharp_by_extension` (dòng 56); phương thức `test_registry_rejects_unknown_extension` (dòng 60); phương thức `test_default_registry_has_csharp` (dòng 64); class `TestStage1ThinRouter` (dòng 72); phương thức `test_ast_guard_is_router_no_csharp_hardcode` (dòng 73); phương thức `test_ast_guard_public_surface_preserved` (dòng 90); phương thức `test_ast_violation_error_identity` (dòng 100); phương thức `test_csharp_symbol_reexported_from_router` (dòng 104); phương thức `test_driver_validate_transition_raises_same_error_type` (dòng 107); phương thức `test_guard_delegates_validate_csharp_transition` (dòng 114); class `TestStage1LanguageSharingContracts` (dòng 126); phương thức `test_shared_language_singleton_across_guards` (dòng 127); phương thức `test_driver_shares_language_with_extractor` (dòng 133); phương thức `test_registry_drivers_share_language_not_parser` (dòng 140); phương thức `test_router_reexports_get_csharp_language` (dòng 146); class `TestStage1ValidationSlots` (dòng 155); phương thức `test_t2_5_mutation_tier_exists` (dòng 156)...",
+    "symbol_count": 27
+  },
+  "tests/scheduler/test_dag_scheduler.py": {
+    "description": "Tập hợp 6 symbol: hàm `temp_git_repo` (dòng 13); hàm `test_dag_cycle_detection` (dòng 28); hàm `test_dag_missing_dependency` (dòng 37); hàm `test_resource_locks` (dòng 45); hàm `test_dag_sequential_execution_success` (dòng 68); hàm `test_dag_aborts_on_failure` (dòng 94)",
+    "symbol_count": 6
+  },
+  "tests/scheduler/test_redispatch_regression.py": {
+    "description": "Tập hợp 1 symbol: hàm `test_parallel_failed_leaf_task_not_redispatched` (dòng 11)",
+    "symbol_count": 1
+  },
+  "tests/test_baseline_behavior.py": {
+    "description": "Tập hợp 16 symbol: hàm `temp_git_repo` (dòng 28); hàm `test_baseline_runtime_default_validators` (dòng 51); hàm `test_baseline_short_old_text_ambiguity_behavior` (dòng 65); hàm `test_baseline_long_old_text_ambiguity_rejection` (dòng 82); hàm `test_baseline_empty_old_text_appends_to_file` (dòng 106); hàm `test_baseline_git_add_all_stages_unrelated_files` (dòng 122); hàm `test_baseline_target_symbols_enforcement` (dòng 162); hàm `test_baseline_high_risk_does_not_bypass_checks` (dòng 185); hàm `test_baseline_symbol_database_distinguishes_overloads` (dòng 220); hàm `test_baseline_context_builder_token_budget_priority_dropping` (dòng 255); hàm `test_baseline_ast_guard_assert_counting` (dòng 274); hàm `test_baseline_duplicate_filepatch_behavior` (dòng 298); hàm `test_baseline_network_error_classified_as_network_error` (dòng 319); hàm `test_baseline_evidence_none_defaults_to_fast_model` (dòng 340); hàm `test_baseline_dag_earlier_commits_remain_on_failure` (dòng 353); hàm `test_baseline_stale_memory_ignores_code_changes` (dòng 384)",
+    "symbol_count": 16
+  },
+  "tests/test_goal_round_wiring.py": {
+    "description": "Tập hợp 12 symbol: hàm `_git_repo` (dòng 23); class `TestPolicyOwnsTestFileBan` (dòng 41); phương thức `test_policy_field_exists_with_defaults` (dòng 42); phương thức `test_scope_guard_uses_policy_patterns` (dòng 48); phương thức `test_scope_guard_respects_policy_relaxation_not_default` (dòng 61); class `TestCoordinatorHoldoutLoading` (dòng 79); phương thức `test_coordinator_loads_holdout_into_runtime` (dòng 80); phương thức `test_coordinator_empty_holdout_loads_empty` (dòng 140); class `TestCoordinatorMetamorphicWiring` (dòng 194); phương thức `test_metamorphic_runs_when_test_cmd_configured` (dòng 195); phương thức `test_metamorphic_skipped_in_test_mode` (dòng 259); phương thức `test_metamorphic_failure_rejects_task` (dòng 315)",
+    "symbol_count": 12
+  },
+  "tests/test_model_family.py": {
+    "description": "Tập hợp 3 symbol: hàm `test_get_model_family_mappings` (dòng 9); hàm `test_cross_family_enforcement_raises_on_same_family` (dòng 23); hàm `test_cross_family_enforcement_allows_different_families` (dòng 45)",
+    "symbol_count": 3
+  },
+  "tests/test_orchestrator_infra_bugs.py": {
+    "description": "Tập hợp 21 symbol: class `TestBug1UnionImport` (dòng 23); phương thức `test_workspace_imports_cleanly` (dòng 26); phương thức `test_get_git_dir_accepts_str_and_path` (dòng 31); phương thức `test_get_git_dir_resolves_worktree_gitdir_file` (dòng 43); phương thức `test_get_git_dir_relative_gitdir_path` (dòng 54); class `TestBug2HoldoutAllowedUntracked` (dòng 71); phương thức `test_allowed_untracked_includes_holdout` (dòng 74); phương thức `test_old_pattern_removed` (dòng 84); class `TestBug3HoldoutCleanup` (dòng 101); phương thức `test_holdout_cleanup_in_runtime_source` (dòng 104); phương thức `test_holdout_cleanup_after_validate` (dòng 116); phương thức `test_holdout_files_cleaned_from_worktree` (dòng 129); class `TestBug4GitDirResolution` (dòng 155); phương thức `test_coordinator_uses_get_git_dir` (dòng 158); phương thức `test_get_git_dir_imported_in_coordinator` (dòng 171); phương thức `test_worktree_run_dir_resolves_correctly` (dòng 177); class `TestBug5ClientRaceCondition` (dòng 197); phương thức `test_provider_has_client_lock` (dòng 200); phương thức `test_concurrent_get_client_returns_same_client` (dòng 211); phương thức `test_get_client_recreates_after_close` (dòng 244)...",
+    "symbol_count": 21
+  },
+  "tests/test_phase7_robustness.py": {
+    "description": "Tập hợp 20 symbol: hàm `temp_git_repo` (dòng 42); hàm `test_malformed_model_output_classified_as_format_error` (dòng 57); hàm `test_invalid_patch_content_classified_as_content_invalid` (dòng 71); hàm `test_http_429_classified_as_rate_limit` (dòng 85); hàm `test_network_failure_classified_as_network_error` (dòng 106); hàm `test_http_5xx_classified_as_server_error` (dòng 127); hàm `test_model_timeout_classified_as_timeout` (dòng 148); hàm `test_transient_failure_retries_and_succeeds` (dòng 169); hàm `test_policy_violation_does_not_retry` (dòng 208); hàm `test_build_timeout_classified_as_timeout` (dòng 240); hàm `test_process_tree_cleanup_on_timeout` (dòng 254); hàm `test_output_limit_truncation` (dòng 290); hàm `test_exit_code_based_build_classification` (dòng 307); hàm `test_git_subprocess_timeout` (dòng 320); hàm `test_git_failure_surfaced` (dòng 327); hàm `test_rollback_failure_classified_as_rollback_failed` (dòng 336); hàm `test_budget_release_after_failed_attempt` (dòng 362); hàm `test_budget_release_after_dry_run` (dòng 399); hàm `test_budget_commit_after_successful_transaction` (dòng 423); hàm `test_recovery_history_remains_bounded` (dòng 445)",
+    "symbol_count": 20
+  },
+  "tests/test_phase8_final_audit.py": {
+    "description": "Tập hợp 9 symbol: hàm `temp_git_repo` (dòng 22); hàm `test_dag_duplicate_task_id_rejected` (dòng 38); hàm `test_dag_empty_task_id_rejected` (dòng 48); hàm `test_dag_independent_branches_continue_on_failure` (dòng 56); hàm `test_dag_parallel_execution` (dòng 101); hàm `test_transaction_journal_and_orphan_cleanup` (dòng 152); hàm `test_atomic_file_write_and_crlf_preservation` (dòng 176); hàm `test_post_commit_verification` (dòng 196); hàm `test_end_to_end_failure_isolation_scenario` (dòng 215)",
+    "symbol_count": 9
+  },
+  "tests/test_phase_a_gates.py": {
+    "description": "Tập hợp 36 symbol: class `TestMutationGate` (dòng 25); phương thức `test_mutation_module_exists` (dòng 26); phương thức `test_diff_regions_only_in_changed_area` (dòng 32); phương thức `test_operators_include_required_inversions` (dòng 40); phương thức `test_generate_mutants_only_in_diff_region` (dòng 46); phương thức `test_string_literals_never_mutated` (dòng 67); phương thức `test_comments_never_mutated` (dòng 75); phương thức `test_gate_fails_when_tests_vacuous` (dòng 83); phương thức `test_gate_passes_when_tests_kill_all` (dòng 104); phương thức `test_gate_skips_when_no_mutable_tokens` (dòng 124); phương thức `test_max_mutants_cap` (dòng 136); phương thức `test_threshold_out_of_range_rejected` (dòng 148); class `TestPlannerHoldout` (dòng 160); phương thức `test_planned_task_has_holdout_fields` (dòng 161); phương thức `test_planner_prompt_requests_holdout` (dòng 168); phương thức `test_planner_prompt_requires_pbt` (dòng 173); hàm `_git_repo_with_tests` (dòng 185); class `TestWriteScopeIsolation` (dòng 201); phương thức `test_scope_guard_rejects_dev_writing_csharp_test_file` (dòng 202); phương thức `test_scope_guard_rejects_dev_writing_new_test_file` (dòng 221)...",
+    "symbol_count": 36
+  },
+  "tests/test_phase_b_purity.py": {
+    "description": "Tập hợp 25 symbol: hàm `_transition` (dòng 19); class `TestPurityGuardCoreDomain` (dòng 27); phương thức `test_file_io_rejected_in_core` (dòng 28); phương thức `test_file_write_rejected_in_domain` (dòng 35); phương thức `test_socket_rejected_in_core` (dòng 42); phương thức `test_tcpclient_rejected_in_core` (dòng 49); phương thức `test_dbcontext_method_call_rejected_in_core` (dòng 56); phương thức `test_repository_method_call_rejected_in_core` (dòng 63); phương thức `test_client_method_call_rejected_in_core` (dòng 70); phương thức `test_datetime_now_rejected_in_core` (dòng 77); phương thức `test_datetime_utcnow_rejected_in_core` (dòng 84); phương thức `test_unseeded_random_rejected_in_core` (dòng 91); phương thức `test_seeded_random_allowed_in_core` (dòng 98); phương thức `test_static_mutable_field_rejected_in_core` (dòng 105); phương thức `test_static_readonly_field_allowed_in_core` (dòng 112); phương thức `test_static_field_assignment_rejected_in_core` (dòng 119); class `TestPurityGuardShellExempt` (dòng 131); phương thức `test_file_io_allowed_outside_core` (dòng 132); phương thức `test_datetime_now_allowed_outside_core` (dòng 139); class `TestTwoArgTautologyAssert` (dòng 150)...",
+    "symbol_count": 25
+  },
+  "tests/test_phase_c_prompts.py": {
+    "description": "Tập hợp 13 symbol: class `TestDevPromptPACT` (dòng 18); phương thức `test_system_prompt_mentions_pact` (dòng 19); phương thức `test_system_prompt_requires_guard_clauses` (dòng 23); phương thức `test_system_prompt_requires_purity_in_core` (dòng 29); phương thức `test_system_prompt_bans_hardcoding` (dòng 35); phương thức `test_system_prompt_warns_hidden_tests` (dòng 39); class `TestQAPromptPBT` (dòng 44); phương thức `_planner_source` (dòng 45); phương thức `test_qa_prompt_requires_100_iterations` (dòng 48); phương thức `test_qa_prompt_requires_seeded_generator` (dòng 52); phương thức `test_qa_prompt_requires_zero_dependencies` (dòng 57); phương thức `test_qa_prompt_names_invariant_kinds` (dòng 62); phương thức `test_qa_prompt_uses_native_generative_loop_name` (dòng 67)",
+    "symbol_count": 13
+  },
+  "tests/test_phase_d_prover_metamorphic.py": {
+    "description": "Tập hợp 27 symbol: hàm `_git_repo` (dòng 28); class `_StubClient` (dòng 42); phương thức `__init__` (dòng 44); phương thức `query` (dòng 48); class `TestD1SecurityProver` (dòng 56); phương thức `test_coordinator_accepts_prover_client` (dòng 57); phương thức `test_prover_family_must_differ_from_dev` (dòng 69); phương thức `test_prover_review_returns_validated_verdict` (dòng 89); phương thức `test_prover_review_prompt_is_exploit_focused` (dòng 108); phương thức `test_prover_invalid_json_rejected` (dòng 131); phương thức `test_rejected_verdict_enforced_as_task_failure` (dòng 149); class `TestD2Transforms` (dòng 172); phương thức `test_module_exists` (dòng 173); phương thức `test_reseed_random_literal` (dòng 178); phương thức `test_reseed_ignores_unseeded_and_nonliteral` (dòng 183); phương thức `test_rename_locals` (dòng 188); phương thức `test_rename_noop_on_unmatched` (dòng 196); phương thức `test_reverse_test_order_python` (dòng 201); phương thức `test_reverse_test_order_single_test_identity` (dòng 207); phương thức `test_reverse_test_order_csharp_methods` (dòng 212)...",
+    "symbol_count": 27
+  },
+  "tests/test_phase_e_sandbox_env.py": {
+    "description": "Tập hợp 9 symbol: class `TestSafeEnvAllowlist` (dòng 18); phương thức `test_allowlist_constant_exists` (dòng 19); phương thức `test_allowlist_covers_toolchains` (dòng 23); phương thức `test_build_child_env_drops_secrets` (dòng 34); phương thức `test_build_child_env_keeps_allowlisted` (dòng 49); phương thức `test_build_child_env_explicit_override` (dòng 58); phương thức `test_build_child_env_forces_deterministic` (dòng 62); phương thức `test_run_hardened_command_never_leaks_parent_secrets` (dòng 67); phương thức `test_run_hardened_command_path_still_works` (dòng 85)",
+    "symbol_count": 9
+  },
+  "tests/test_qa_adversarial_v1.py": {
+    "description": "Tập hợp 16 symbol: hàm `temp_git_repo` (dòng 21); class `TestRiskItemR1Queue` (dòng 47); phương thức `test_r1_1_queue_pycache_and_stdlib_import` (dòng 48); phương thức `test_r1_2_grep_no_stale_queue_references` (dòng 73); class `TestRiskItemR2Baseline` (dòng 116); phương thức `test_r2_1_baseline_cache_different_config_fingerprints` (dòng 117); phương thức `test_r2_2_tx_worktree_base_commit_is_valid_sha` (dòng 132); class `TestRiskItemR3PendingIntegrationAndIsolation` (dòng 156); phương thức `test_r3_1_pending_worktree_present_in_orphaned_list` (dòng 157); phương thức `test_r3_2_non_integrated_task_releases_session_budget` (dòng 199); phương thức `test_r3_3_main_head_movement_detected_stale_base_regression_guard` (dòng 246); class `TestRiskItemR4Concurrency` (dòng 253); phương thức `test_r4_1_concurrent_interleaved_journal_start_end` (dòng 254); phương thức `test_r4_2_audit_deterministic_race_testing_uses_barriers` (dòng 306); class `TestBug22TailAllowedUntrackedPaths` (dòng 336); phương thức `test_integrate_respects_allowed_untracked_paths` (dòng 337)",
+    "symbol_count": 16
+  },
+  "tests/test_qa_adversarial_v2.py": {
+    "description": "Tập hợp 24 symbol: hàm `temp_git_repo` (dòng 24); class `TestQA_Adversarial_R1_ASTOverload` (dòng 43); phương thức `test_r1a_overload_multi_target_allowed` (dòng 46); phương thức `test_r1a_signature_change_with_unrelated_target_blocked` (dòng 72); phương thức `test_r1b_legacy_ast_tests_pass` (dòng 96); phương thức `test_adversarial_a_constructor_signature_change_in_target_allowed` (dòng 116); phương thức `test_adversarial_a_constructor_signature_change_outside_target_blocked` (dòng 143); class `TestQA_Adversarial_R2_AssertDetection` (dòng 162); phương thức `test_r2a_r2b_nested_and_generic_assert_recognized` (dòng 165); phương thức `test_adversarial_b_fully_qualified_assert_recognized` (dòng 213); class `TestQA_Adversarial_R3_Classification` (dòng 250); phương thức `test_r3a_circular_import_verification` (dòng 253); phương thức `test_r3b_rollback_failure_test_pass` (dòng 273); phương thức `test_adversarial_c_workspace_error_hierarchy_classification` (dòng 287); class `TestQA_Adversarial_R4_BehavioralBaseline` (dòng 306); phương thức `test_r4a_pipeline_t2_pass_then_fail_behavioral` (dòng 309); phương thức `test_r4b_failures_deduplication_and_ordering` (dòng 344); phương thức `test_r4b_post_success_with_failures_no_regression` (dòng 355); phương thức `test_adversarial_d_t2_skipped_when_validator_is_none` (dòng 364); class `TestQA_Adversarial_R5_ProcessTree` (dòng 375)...",
+    "symbol_count": 24
+  },
+  "tests/test_qa_adversarial_v3.py": {
+    "description": "Tập hợp 45 symbol: hàm `temp_git_repo` (dòng 32); class `TestQA_Adversarial_R1_EpisodicMemory` (dòng 51); phương thức `test_r1a_empty_target_symbols_avoids_retrieval_and_defaults_symbol_on_store` (dòng 54); phương thức `test_r1a_execute_with_model_with_empty_target_symbols` (dòng 104); phương thức `test_r1b_episode_actually_persisted_with_complete_fields` (dòng 144); phương thức `test_r1b_failed_transaction_does_not_persist_episode` (dòng 197); phương thức `test_r1b_store_exception_swallowed_without_failing_transaction` (dòng 238); phương thức `test_r1c_recovery_loop_propagates_advisory_episodes` (dòng 279); phương thức `test_r1c_recovery_loop_resilient_to_retriever_exception` (dòng 354); phương thức `test_3c_episodic_dedup_duplicate_symbols_behavior` (dòng 400); class `TestQA_Adversarial_R2_CLIEntrypoints` (dòng 460); phương thức `test_r2a_env_isolation_missing_key_clean_error` (dòng 463); phương thức `test_r2a_env_file_loads_key_without_calling_real_api` (dòng 489); phương thức `test_r2b_cli_dag_parallel_three_concurrent_tasks` (dòng 517); phương thức `test_r2c_exit_code_branches_for_all_commands` (dòng 562); phương thức `test_3e_dag_sequential_then_parallel_on_same_repo_default_dry_run` (dòng 620); phương thức `test_3e_dag_failure_causes_dependent_abort_and_nonzero_exit` (dòng 651); phương thức `test_3e_dag_invalid_json_syntax_produces_clean_message` (dòng 678); phương thức `test_3e_dag_invalid_pydantic_schema_produces_clean_message` (dòng 689); phương thức `test_3e_dag_json_non_dict_elements_handling` (dòng 704)...",
+    "symbol_count": 45
+  },
+  "tests/test_red_batch2.py": {
+    "description": "Tập hợp 24 symbol: class `TestBug31_SignatureChangeInTarget` (dòng 23); phương thức `test_signature_change_in_target_allowed` (dòng 26); phương thức `test_signature_change_outside_target_blocked` (dòng 38); phương thức `test_real_deletion_in_target_still_blocked` (dòng 48); phương thức `test_overload_signature_swap_in_target` (dòng 58); phương thức `test_no_target_still_blocks_deletion` (dòng 80); class `TestBug32_CalleeOnlyAssertDetection` (dòng 89); phương thức `test_logger_with_assert_string_not_counted` (dòng 92); phương thức `test_real_assert_removal_still_blocked` (dòng 102); phương thức `test_bypass_via_fake_literal_closed` (dòng 110); phương thức `test_callee_identifier_assert_recognized` (dòng 118); class `TestBug4_HardStopClassification` (dòng 127); phương thức `test_staging_error_classified_integrity_failure` (dòng 130); phương thức `test_cleanup_error_classified_rollback_failed` (dòng 135); phương thức `test_base_workspace_error_still_unknown` (dòng 140); phương thức `test_hard_stop_flags` (dòng 145); phương thức `test_circular_import_check` (dòng 150); class `TestBug5_T2BaselineComparison` (dòng 166); phương thức `test_preexisting_behavioral_failure_passes_t2` (dòng 169); phương thức `test_new_behavioral_failure_fails_t2` (dòng 193)...",
+    "symbol_count": 24
+  },
+  "tests/test_red_batch3.py": {
+    "description": "Tập hợp 38 symbol: hàm `temp_git_repo` (dòng 29); class `TestCategory1_EpisodicMemoryIntegration` (dòng 49); phương thức `test_runtime_init_has_episodic_memory_parameters_and_attributes` (dòng 52); phương thức `test_store_episode_on_integrated_success` (dòng 71); phương thức `test_execute_with_model_injects_advisory_episodes_to_context_builder` (dòng 126); phương thức `test_store_failure_does_not_break_transaction` (dòng 204); phương thức `test_risk_r1a_empty_target_symbols_does_not_call_retriever` (dòng 246); phương thức `test_risk_r1c_recovery_loop_injects_advisory_episodes` (dòng 298); class `TestCategory2_CLIEntrypoints` (dòng 375); phương thức `test_cli_commands_registered` (dòng 378); phương thức `test_cli_model_command_success_and_failure_exit_codes` (dòng 386); phương thức `test_cli_recover_command_invokes_recovery_pipeline` (dòng 423); phương thức `test_cli_dag_sequential_and_parallel` (dòng 450); phương thức `test_cli_dag_failure_aborts_downstream` (dòng 491); phương thức `test_cli_invalid_json_schema_error_handling` (dòng 522); phương thức `test_risk_r2a_missing_api_key_exits_gracefully` (dòng 537); class `TestCategory3_JournalLazyWrite` (dòng 567); phương thức `test_journal_has_flush_and_pending_states_interface` (dòng 570); phương thức `test_journal_lazy_write_reduces_io_calls` (dòng 580); phương thức `test_journal_flush_persists_pending_states_to_disk` (dòng 621)...",
+    "symbol_count": 38
+  },
+  "tests/test_red_fix_batch.py": {
+    "description": "Tập hợp 15 symbol: hàm `temp_git_repo` (dòng 16); class `TestBug11QueueRename` (dòng 32); phương thức `test_import_queue_is_stdlib` (dòng 33); phương thức `test_thread_pool_executor_instantiable` (dòng 40); phương thức `test_taskqueue_package_importable` (dòng 45); class `TestBug21BaselineCacheKey` (dòng 51); phương thức `test_cache_key_uses_base_commit_not_moving_head` (dòng 52); phương thức `test_different_base_commits_different_entries` (dòng 76); phương thức `test_default_uses_ws_head_fallback` (dòng 94); class `TestBug22NoCleanupNoFakeSuccess` (dòng 105); phương thức `test_stale_base_retains_worktree_and_reports_failure` (dòng 106); phương thức `test_integrated_still_cleans_and_succeeds` (dòng 143); class `TestBug23JournalLock` (dòng 169); phương thức `test_concurrent_record_start_no_lost_update` (dòng 170); phương thức `test_journal_api_unchanged` (dòng 200)",
+    "symbol_count": 15
+  },
+  "tests/test_transaction.py": {
+    "description": "Tập hợp 8 symbol: hàm `temp_git_repo` (dòng 13); hàm `test_valid_patch_commit` (dòng 29); hàm `test_scope_violation_unallowed_file` (dòng 69); hàm `test_scope_violation_lines_budget` (dòng 101); hàm `test_patch_invalid_hunk_mismatch` (dòng 133); hàm `test_build_failure_and_rollback` (dòng 163); hàm `test_dry_run_mode` (dòng 197); hàm `test_anti_bypass_detection` (dòng 228)",
+    "symbol_count": 8
+  },
+  "tests/test_worktree_isolation.py": {
+    "description": "Tập hợp 17 symbol: hàm `temp_git_repo` (dòng 23); hàm `test_isolated_worktree_creation` (dòng 40); hàm `test_transaction_operates_inside_its_own_worktree` (dòng 59); hàm `test_two_transactions_can_coexist_without_mutual_interference` (dòng 94); hàm `test_failure_cleanup_discards_worktree_safely` (dòng 130); hàm `test_unrelated_main_workspace_modification_survives` (dòng 157); hàm `test_unrelated_untracked_main_file_survives` (dòng 183); hàm `test_exact_staging` (dòng 200); hàm `test_unexpected_generated_file_causes_failure` (dòng 227); hàm `test_robust_git_status_parsing` (dòng 251); hàm `test_base_head_is_recorded` (dòng 282); hàm `test_main_head_movement_detected_stale_base` (dòng 298); hàm `test_transaction_id_collision_prevention` (dòng 329); hàm `test_cleanup_failure_reported_explicitly` (dòng 338); hàm `test_capture_diff_modified_and_untracked` (dòng 359); hàm `test_capture_diff_truncates_large_diffs` (dòng 380); hàm `test_dry_run_result_carries_worktree_diff` (dòng 397)",
+    "symbol_count": 17
+  },
+  "tests/validation/test_production_validation_baseline.py": {
+    "description": "Tập hợp 11 symbol: hàm `temp_git_repo` (dòng 17); hàm `test_production_runtime_does_not_instantiate_mocks` (dòng 33); hàm `test_missing_production_build_configuration_fails_closed` (dòng 44); hàm `test_baseline_captured_before_patch_application` (dòng 69); hàm `test_passing_baseline_failing_post_patch_is_regression` (dòng 100); hàm `test_failing_baseline_failing_post_patch_not_new_regression` (dòng 135); hàm `test_baseline_cache_key_and_invalidation` (dòng 160); hàm `test_regression_comparison_case_d_pre_existing_failures_pass` (dòng 192); hàm `test_regression_comparison_case_c_new_failures_fail` (dòng 224); hàm `test_explicit_mock_injection_works` (dòng 262); hàm `test_subprocess_runners_timeout_and_error_handling` (dòng 291)",
+    "symbol_count": 11
+  },
+  "tests/validation/test_validation_pipeline.py": {
+    "description": "Tập hợp 5 symbol: hàm `temp_git_repo` (dòng 12); hàm `test_validation_all_tiers_pass` (dòng 26); hàm `test_validation_t2_behavioral_failure` (dòng 49); hàm `test_validation_t3_regression_failure` (dòng 99); hàm `test_validation_t4_risk_failure` (dòng 144)",
+    "symbol_count": 5
+  },
+  "validation/baseline.py": {
+    "description": "Tập hợp 12 symbol: class `BaselineState` (dòng 15); class `BaselineManager` (dòng 26); phương thức `__init__` (dòng 29); phương thức `get_env_fingerprint` (dòng 34); phương thức `compute_config_fingerprint` (dòng 46); phương thức `compute_cache_key` (dòng 58); phương thức `get_or_capture_baseline` (dòng 67); phương thức `clear_cache` (dòng 113); phương thức `invalidate` (dòng 116); phương thức `compare_build` (dòng 120); phương thức `compare_regression` (dòng 147); phương thức `compare_behavioral` (dòng 164)",
+    "symbol_count": 12
+  },
+  "validation/behavioral.py": {
+    "description": "Tập hợp 9 symbol: class `BehavioralCheckResult` (dòng 8); class `BaseBehavioralValidator` (dòng 14); phương thức `validate_behavior` (dòng 17); class `MockBehavioralValidator` (dòng 21); phương thức `__init__` (dòng 22); phương thức `validate_behavior` (dòng 26); class `SubprocessBehavioralValidator` (dòng 39); phương thức `__init__` (dòng 40); phương thức `validate_behavior` (dòng 44)",
+    "symbol_count": 9
+  },
+  "validation/metamorphic.py": {
+    "description": "Tập hợp 10 symbol: dataclass `MetamorphicResult` (dòng 23); hằng số `_SEEDED_RANDOM_RE` (dòng 38); hàm `reseed_random_literals` (dòng 44); hằng số `_PY_FUNC_SPLIT_RE` (dòng 52); hàm `reverse_test_order` (dòng 57); hàm `rename_test_locals` (dòng 81); class `MetamorphicGate` (dòng 99); thuộc tính `VARIANTS` (dòng 106); phương thức `__init__` (dòng 112); phương thức `run_gate` (dòng 115)",
+    "symbol_count": 10
+  },
+  "validation/mutation.py": {
+    "description": "Tập hợp 24 symbol: class `MutationOperator` (dòng 26); thuộc tính `EQ_TO_NE` (dòng 27); thuộc tính `NE_TO_EQ` (dòng 28); thuộc tính `GT_TO_LE` (dòng 29); thuộc tính `LE_TO_GT` (dòng 30); thuộc tính `LT_TO_GE` (dòng 31); thuộc tính `GE_TO_LT` (dòng 32); thuộc tính `PLUS_TO_MINUS` (dòng 33); thuộc tính `MINUS_TO_PLUS` (dòng 34); thuộc tính `TRUE_TO_FALSE` (dòng 35); thuộc tính `FALSE_TO_TRUE` (dòng 36); dataclass `Mutant` (dòng 40); phương thức `is_surviving` (dòng 51); dataclass `DiffRegion` (dòng 56); hàm `extract_diff_regions` (dòng 64); hàm `_iter_operator_tokens` (dòng 90); hàm `_skip_string` (dòng 168); hàm `_skip_char` (dòng 188); class `ASTMutationGate` (dòng 202); phương thức `__init__` (dòng 206)...",
+    "symbol_count": 24
+  },
+  "validation/pipeline.py": {
+    "description": "Tập hợp 14 symbol: class `MutationGateResult` (dòng 18); class `HoldoutInjectionResult` (dòng 33); class `ValidationTier` (dòng 44); thuộc tính `T0_STRUCTURAL` (dòng 45); thuộc tính `T1_BUILD` (dòng 46); thuộc tính `T2_BEHAVIORAL` (dòng 47); thuộc tính `T2_5_MUTATION` (dòng 48); thuộc tính `T3_REGRESSION` (dòng 49); thuộc tính `T4_RISK` (dòng 50); class `ValidationReport` (dòng 53); class `ValidationPipeline` (dòng 61); phương thức `__init__` (dòng 62); phương thức `validate_pre_apply` (dòng 79); phương thức `validate_post_apply` (dòng 114)",
+    "symbol_count": 14
+  },
+  "validation/regression.py": {
+    "description": "Tập hợp 10 symbol: class `RegressionCheckResult` (dòng 9); class `BaseRegressionValidator` (dòng 15); phương thức `validate_regression` (dòng 18); class `MockRegressionValidator` (dòng 22); phương thức `__init__` (dòng 23); phương thức `validate_regression` (dòng 27); class `SubprocessRegressionValidator` (dòng 40); phương thức `__init__` (dòng 41); phương thức `validate_regression` (dòng 45); phương thức `_parse_broken_tests` (dòng 68)",
+    "symbol_count": 10
+  },
+  "validation/risk.py": {
+    "description": "Tập hợp 3 symbol: class `RiskCheckResult` (dòng 9); class `RiskValidator` (dòng 14); phương thức `validate_risk` (dòng 26)",
+    "symbol_count": 3
+  },
+  "validation/structural.py": {
+    "description": "Tập hợp 2 symbol: class `StructuralValidator` (dòng 8); phương thức `validate` (dòng 11)",
+    "symbol_count": 2
+  },
+  "_meta": {
+    "last_synced_by": "script",
+    "synced_at": "2026-09-09 13:31:16"
   }
 }
