@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 TUNNEL_HOSTS="${TUNNEL_HOSTS:-justargldude.tailccc7ac.ts.net}"
 omni_alive() {
   code="$(curl -s -m 5 -o /dev/null -w "%{http_code}" http://127.0.0.1:20128/v1/models 2>/dev/null || true)"
-  [ "${code:-000}" = "200" ]
+  [ "${code:-000}" = "200" ] || [ "${code:-000}" = "401" ]
 }
 "$SCRIPT_DIR/bin/start-qwen.sh"
 "$SCRIPT_DIR/bin/start-oc.sh"
