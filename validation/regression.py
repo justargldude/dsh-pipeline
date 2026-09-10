@@ -61,7 +61,7 @@ class SubprocessRegressionValidator(BaseRegressionValidator):
 
         broken = self._parse_broken_tests(raw)
         if not broken:
-            broken = [f"Test runner exited with code {returncode}"]
+            broken = [f"Test runner exited with code {returncode}. Output tail: {raw[-400:]}"]
         return RegressionCheckResult(success=False, broken_tests=broken, output=raw)
 
 
@@ -77,6 +77,10 @@ class SubprocessRegressionValidator(BaseRegressionValidator):
                 broken.append(line_str)
             # Dotnet / xUnit / NUnit: Failed TestMethod [12 ms]
             elif "Failed " in line_str and ("[" in line_str or "::" in line_str or "(" in line_str):
+                broken.append(line_str)
+            # Pytest collection error (-q mode không có FAILED line):
+            # E   ImportError / ModuleNotFoundError / SyntaxError
+            elif any(k in line_str for k in ("ImportError", "ModuleNotFoundError", "SyntaxError")):
                 broken.append(line_str)
         return broken
 

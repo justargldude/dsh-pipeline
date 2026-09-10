@@ -13,6 +13,15 @@ from core.journal import TransactionJournal, JournalRecord
 from safety.patch_engine import normalize_repo_path
 from build.sandbox import terminate_process_tree
 
+# Build artifacts được test runner tạo ra trong worktree (pycache, pytest
+# cache) — vô hại, không do model viết, không cờ đỏ là UNEXPECTED_CHANGES.
+_WORKTREE_NOISE_PREFIXES = (
+    "__pycache__/",
+    ".pytest_cache/",
+    ".mypy_cache/",
+    ".ruff_cache/",
+)
+
 logger = logging.getLogger("dsh.workspace")
 
 
@@ -222,15 +231,25 @@ class TransactionWorktree:
             )
         return stdout_b
 
-    def capture_diff(self, max_bytes: int = 512 * 1024) -> str:
+    def capture_diff(self, max_bytes: int = 512 * 1024, exclude_paths=None) -> str:
         """Unified diff of ALL changes in this worktree vs its base commit —
         modified, staged, and untracked (new) files included. Captured
         BEFORE the worktree is discarded (dry-run) so QA/Prover review the
         real changes instead of a placeholder string. Truncated at
         max_bytes to bound prompt size."""
         parts: List[str] = []
+        exclude = {normalize_repo_path(p) for p in (exclude_paths or set()) if p}
         try:
-            base_diff = self._run_git("diff", f"{self.base_commit}")
+            if exclude:
+                try:
+                    changed = self._run_git("diff", "--name-only", f"{self.base_commit}")
+                    tracked = [l.strip() for l in str(changed).splitlines() if l.strip()]
+                    kept = [t for t in tracked if normalize_repo_path(t) not in exclude]
+                    base_diff = self._run_git("diff", f"{self.base_commit}", "--", *kept) if kept else ""
+                except WorkspaceError:
+                    base_diff = ""
+            else:
+                base_diff = self._run_git("diff", f"{self.base_commit}")
             if base_diff:
                 parts.append(base_diff)
         except WorkspaceError:
@@ -243,6 +262,11 @@ class TransactionWorktree:
             statuses = parse_porcelain_v1_z(self._get_status_bytes())
             untracked = [s.path for s in statuses if s.status_code.startswith("?")]
             for path in untracked:
+                try:
+                    if normalize_repo_path(path) in exclude:
+                        continue
+                except Exception:
+                    pass
                 try:
                     code, stdout_b, _ = _run_git_subprocess(
                         self.worktree_path, "diff", "--no-index", "--", "/dev/null", path, timeout=self.timeout
@@ -327,6 +351,9 @@ class TransactionWorktree:
             if norm_path in normalized_expected:
                 continue
             if any(norm_path.startswith(allow_p) for allow_p in allowed if allow_p):
+                continue
+            # Skip build artifacts vô hại do test runner sinh ra (cả root và nested).
+            if norm_path.startswith(_WORKTREE_NOISE_PREFIXES) or "/__pycache__/" in norm_path or norm_path.endswith(".pyc"):
                 continue
             unexpected.append(s.path)
 

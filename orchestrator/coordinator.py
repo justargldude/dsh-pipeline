@@ -545,6 +545,10 @@ Respond ONLY with a valid JSON object (no prose, no markdown fences) matching ex
             # F-02: wire red-test propagation into every transaction worktree
             # via the runtime's on_worktree_created callback.
             runtime.on_worktree_created = self._red_test_worktree_callback(task)
+            # QA-injected paths (red test file) phải bị loại khỏi review diff
+            # trong dry-run: reviewer không được gán nhầm red test của QA cho
+            # Dev (TaskDefinition không mang test_file nên truyền qua đây).
+            runtime._qa_injected_paths = {task.test_file} if task.test_file else set()
             # v2.3 Phase A: load this task's HIDDEN holdout test into the
             # runtime so the holdout_injector slot writes it into the
             # worktree immediately before T3 Regression. The holdout never

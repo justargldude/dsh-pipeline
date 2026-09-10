@@ -783,7 +783,7 @@
     "symbols": []
   },
   "model/providers.py": {
-    "lines": 438,
+    "lines": 479,
     "symbols": [
       {
         "kind": "function",
@@ -807,101 +807,122 @@
         "sig": "def resolve_xkiro_api_key() -> str"
       },
       {
+        "kind": "constant",
+        "name": "OMNIROUTE_MODEL_PREFIXES",
+        "parent": null,
+        "line": 108,
+        "sig": "OMNIROUTE_MODEL_PREFIXES = ..."
+      },
+      {
+        "kind": "function",
+        "name": "_omniroute_credentials_path",
+        "parent": null,
+        "line": 116,
+        "sig": "def _omniroute_credentials_path() -> Path"
+      },
+      {
+        "kind": "function",
+        "name": "resolve_omniroute_api_key",
+        "parent": null,
+        "line": 120,
+        "sig": "def resolve_omniroute_api_key() -> str"
+      },
+      {
         "kind": "class",
         "name": "BaseModelProvider",
         "parent": null,
-        "line": 108,
+        "line": 149,
         "sig": "class BaseModelProvider(ABC)"
       },
       {
         "kind": "method",
         "name": "generate",
         "parent": "BaseModelProvider",
-        "line": 110,
+        "line": 151,
         "sig": "def generate(self, req) -> ModelResponse"
       },
       {
         "kind": "method",
         "name": "extract_patch_proposal_structured",
         "parent": "BaseModelProvider",
-        "line": 114,
+        "line": 155,
         "sig": "def extract_patch_proposal_structured(cls, raw_text) -> Tuple[Optional[PatchProposal], Optional[FailureType], Optional[str]]"
       },
       {
         "kind": "method",
         "name": "extract_patch_proposal",
         "parent": "BaseModelProvider",
-        "line": 189,
+        "line": 230,
         "sig": "def extract_patch_proposal(cls, raw_text) -> Optional[PatchProposal]"
       },
       {
         "kind": "class",
         "name": "MockModelProvider",
         "parent": null,
-        "line": 195,
+        "line": 236,
         "sig": "class MockModelProvider(BaseModelProvider)"
       },
       {
         "kind": "method",
         "name": "__init__",
         "parent": "MockModelProvider",
-        "line": 196,
+        "line": 237,
         "sig": "def __init__(self, predefined_proposal, raw_response, failure_type, error, status_code, canned_response)"
       },
       {
         "kind": "method",
         "name": "generate",
         "parent": "MockModelProvider",
-        "line": 215,
+        "line": 256,
         "sig": "def generate(self, req) -> ModelResponse"
       },
       {
         "kind": "class",
         "name": "OpenAICompatibleProvider",
         "parent": null,
-        "line": 258,
+        "line": 299,
         "sig": "class OpenAICompatibleProvider(BaseModelProvider)"
       },
       {
         "kind": "method",
         "name": "__init__",
         "parent": "OpenAICompatibleProvider",
-        "line": 259,
+        "line": 300,
         "sig": "def __init__(self, api_key, base_url, fast_model, reasoning_model, timeout_seconds, max_retries, backoff_factor, max_backoff_seconds, client)"
       },
       {
         "kind": "method",
         "name": "_get_client",
         "parent": "OpenAICompatibleProvider",
-        "line": 283,
+        "line": 324,
         "sig": "def _get_client(self) -> httpx.Client"
       },
       {
         "kind": "method",
         "name": "close",
         "parent": "OpenAICompatibleProvider",
-        "line": 293,
+        "line": 334,
         "sig": "def close(self)"
       },
       {
         "kind": "method",
         "name": "__enter__",
         "parent": "OpenAICompatibleProvider",
-        "line": 298,
+        "line": 339,
         "sig": "def __enter__(self)"
       },
       {
         "kind": "method",
         "name": "__exit__",
         "parent": "OpenAICompatibleProvider",
-        "line": 301,
+        "line": 342,
         "sig": "def __exit__(self, exc_type, exc_val, exc_tb)"
       },
       {
         "kind": "method",
         "name": "generate",
         "parent": "OpenAICompatibleProvider",
-        "line": 304,
+        "line": 345,
         "sig": "def generate(self, req) -> ModelResponse"
       }
     ]
@@ -3014,146 +3035,153 @@
     ]
   },
   "orchestrator/subagents.py": {
-    "lines": 535,
+    "lines": 576,
     "symbols": [
       {
         "kind": "function",
         "name": "_parse_subagent_timeout_env",
         "parent": null,
-        "line": 22,
+        "line": 24,
         "sig": "def _parse_subagent_timeout_env() -> int"
       },
       {
         "kind": "function",
         "name": "_is_muse_name",
         "parent": null,
-        "line": 38,
+        "line": 40,
         "sig": "def _is_muse_name(name) -> bool"
+      },
+      {
+        "kind": "function",
+        "name": "_is_omniroute_name",
+        "parent": null,
+        "line": 58,
+        "sig": "def _is_omniroute_name(name) -> bool"
       },
       {
         "kind": "class",
         "name": "SubagentCLIModelProvider",
         "parent": null,
-        "line": 56,
+        "line": 69,
         "sig": "class SubagentCLIModelProvider(BaseModelProvider)"
       },
       {
         "kind": "method",
         "name": "__init__",
         "parent": "SubagentCLIModelProvider",
-        "line": 64,
+        "line": 77,
         "sig": "def __init__(self, cli_command, model_name, timeout_seconds)"
       },
       {
         "kind": "method",
         "name": "generate",
         "parent": "SubagentCLIModelProvider",
-        "line": 74,
+        "line": 87,
         "sig": "def generate(self, req) -> ModelResponse"
       },
       {
         "kind": "class",
         "name": "SubagentClient",
         "parent": null,
-        "line": 131,
+        "line": 144,
         "sig": "class SubagentClient()"
       },
       {
         "kind": "property",
         "name": "DEFAULT_QUERY_TIMEOUT",
         "parent": "SubagentClient",
-        "line": 138,
+        "line": 151,
         "sig": "SubagentClient.DEFAULT_QUERY_TIMEOUT"
       },
       {
         "kind": "method",
         "name": "__init__",
         "parent": "SubagentClient",
-        "line": 140,
+        "line": 153,
         "sig": "def __init__(self, name, cli_command, test_mode)"
       },
       {
         "kind": "method",
         "name": "set_mock_response",
         "parent": "SubagentClient",
-        "line": 151,
+        "line": 164,
         "sig": "def set_mock_response(self, prompt_keyword, response)"
       },
       {
         "kind": "method",
         "name": "query",
         "parent": "SubagentClient",
-        "line": 155,
+        "line": 168,
         "sig": "def query(self, prompt, timeout) -> str"
       },
       {
         "kind": "method",
         "name": "query_json",
         "parent": "SubagentClient",
-        "line": 228,
+        "line": 241,
         "sig": "def query_json(self, prompt, timeout) -> Dict[str, Any]"
       },
       {
         "kind": "method",
         "name": "_extract_json",
         "parent": "SubagentClient",
-        "line": 234,
+        "line": 247,
         "sig": "def _extract_json(text) -> Dict[str, Any]"
       },
       {
         "kind": "function",
         "name": "create_qa_client",
         "parent": null,
-        "line": 263,
+        "line": 276,
         "sig": "def create_qa_client(model_or_cli, test_mode) -> SubagentClient"
       },
       {
         "kind": "function",
         "name": "create_dev_provider",
         "parent": null,
-        "line": 366,
+        "line": 394,
         "sig": "def create_dev_provider(model_or_cli, test_mode, mock_provider) -> BaseModelProvider"
       },
       {
         "kind": "class",
         "name": "AntigravityClient",
         "parent": null,
-        "line": 492,
+        "line": 533,
         "sig": "class AntigravityClient(SubagentClient)"
       },
       {
         "kind": "method",
         "name": "__init__",
         "parent": "AntigravityClient",
-        "line": 495,
+        "line": 536,
         "sig": "def __init__(self, cli_path, test_mode)"
       },
       {
         "kind": "class",
         "name": "DeepSeekClient",
         "parent": null,
-        "line": 505,
+        "line": 546,
         "sig": "class DeepSeekClient()"
       },
       {
         "kind": "method",
         "name": "__init__",
         "parent": "DeepSeekClient",
-        "line": 508,
+        "line": 549,
         "sig": "def __init__(self, base_url, api_key, test_mode)"
       },
       {
         "kind": "method",
         "name": "set_mock_provider",
         "parent": "DeepSeekClient",
-        "line": 523,
+        "line": 564,
         "sig": "def set_mock_provider(self, provider)"
       },
       {
         "kind": "method",
         "name": "get_provider",
         "parent": "DeepSeekClient",
-        "line": 526,
+        "line": 567,
         "sig": "def get_provider(self) -> BaseModelProvider"
       }
     ]
@@ -3163,7 +3191,7 @@
     "symbols": []
   },
   "core/config.py": {
-    "lines": 52,
+    "lines": 66,
     "symbols": [
       {
         "kind": "class",
@@ -8308,6 +8336,212 @@
         "parent": null,
         "line": 288,
         "sig": "def test_muse_cross_family_vs_other_models(tmp_path)"
+      }
+    ]
+  },
+  "tests/orchestrator/test_omniroute_prefix_precedence.py": {
+    "lines": 119,
+    "symbols": [
+      {
+        "kind": "function",
+        "name": "test_is_omniroute_name_prefixes",
+        "parent": null,
+        "line": 18,
+        "sig": "def test_is_omniroute_name_prefixes()"
+      },
+      {
+        "kind": "function",
+        "name": "test_is_omniroute_name_negatives",
+        "parent": null,
+        "line": 25,
+        "sig": "def test_is_omniroute_name_negatives()"
+      },
+      {
+        "kind": "function",
+        "name": "test_dev_branch_omniroute_first_qwen_local",
+        "parent": null,
+        "line": 37,
+        "sig": "def test_dev_branch_omniroute_first_qwen_local(monkeypatch)"
+      },
+      {
+        "kind": "function",
+        "name": "test_dev_branch_omniroute_first_muse",
+        "parent": null,
+        "line": 47,
+        "sig": "def test_dev_branch_omniroute_first_muse(monkeypatch)"
+      },
+      {
+        "kind": "function",
+        "name": "test_dev_branch_omniroute_first_deepseek_web",
+        "parent": null,
+        "line": 57,
+        "sig": "def test_dev_branch_omniroute_first_deepseek_web(monkeypatch)"
+      },
+      {
+        "kind": "function",
+        "name": "test_dev_branch_omniroute_first_glm_aug",
+        "parent": null,
+        "line": 65,
+        "sig": "def test_dev_branch_omniroute_first_glm_aug(monkeypatch)"
+      },
+      {
+        "kind": "function",
+        "name": "test_qa_branch_omniroute_first_all_prefixes",
+        "parent": null,
+        "line": 74,
+        "sig": "def test_qa_branch_omniroute_first_all_prefixes(monkeypatch)"
+      },
+      {
+        "kind": "function",
+        "name": "test_qa_branch_omniroute_before_family_branches",
+        "parent": null,
+        "line": 95,
+        "sig": "def test_qa_branch_omniroute_before_family_branches(monkeypatch)"
+      },
+      {
+        "kind": "function",
+        "name": "test_qa_non_omniroute_names_unaffected",
+        "parent": null,
+        "line": 111,
+        "sig": "def test_qa_non_omniroute_names_unaffected(monkeypatch)"
+      }
+    ]
+  },
+  "tests/orchestrator/test_omniroute_provider.py": {
+    "lines": 244,
+    "symbols": [
+      {
+        "kind": "function",
+        "name": "test_omniroute_key_env_wins",
+        "parent": null,
+        "line": 33,
+        "sig": "def test_omniroute_key_env_wins(monkeypatch)"
+      },
+      {
+        "kind": "function",
+        "name": "test_omniroute_key_from_credentials",
+        "parent": null,
+        "line": 38,
+        "sig": "def test_omniroute_key_from_credentials(monkeypatch, tmp_path)"
+      },
+      {
+        "kind": "function",
+        "name": "test_omniroute_key_missing_raises",
+        "parent": null,
+        "line": 50,
+        "sig": "def test_omniroute_key_missing_raises(monkeypatch, tmp_path)"
+      },
+      {
+        "kind": "function",
+        "name": "test_omniroute_key_no_hardcoded_fallback",
+        "parent": null,
+        "line": 61,
+        "sig": "def test_omniroute_key_no_hardcoded_fallback(monkeypatch, tmp_path)"
+      },
+      {
+        "kind": "function",
+        "name": "test_omniroute_dev_provider_resolution",
+        "parent": null,
+        "line": 78,
+        "sig": "def test_omniroute_dev_provider_resolution(monkeypatch)"
+      },
+      {
+        "kind": "function",
+        "name": "test_omniroute_dev_provider_base_url_env_override",
+        "parent": null,
+        "line": 90,
+        "sig": "def test_omniroute_dev_provider_base_url_env_override(monkeypatch)"
+      },
+      {
+        "kind": "function",
+        "name": "test_omniroute_dev_provider_missing_key_raises",
+        "parent": null,
+        "line": 97,
+        "sig": "def test_omniroute_dev_provider_missing_key_raises(monkeypatch, tmp_path)"
+      },
+      {
+        "kind": "function",
+        "name": "test_omniroute_qa_client_resolution",
+        "parent": null,
+        "line": 109,
+        "sig": "def test_omniroute_qa_client_resolution()"
+      },
+      {
+        "kind": "function",
+        "name": "test_omniroute_qa_client_missing_wrapper_fails_fast",
+        "parent": null,
+        "line": 119,
+        "sig": "def test_omniroute_qa_client_missing_wrapper_fails_fast(monkeypatch)"
+      },
+      {
+        "kind": "constant",
+        "name": "OMNI_PREFIXES",
+        "parent": null,
+        "line": 132,
+        "sig": "OMNI_PREFIXES = ..."
+      },
+      {
+        "kind": "function",
+        "name": "test_omniroute_prefix_list_covers_all",
+        "parent": null,
+        "line": 140,
+        "sig": "def test_omniroute_prefix_list_covers_all()"
+      },
+      {
+        "kind": "function",
+        "name": "test_omniroute_names_route_to_omniroute_dev",
+        "parent": null,
+        "line": 157,
+        "sig": "def test_omniroute_names_route_to_omniroute_dev(monkeypatch, name)"
+      },
+      {
+        "kind": "function",
+        "name": "test_non_omniroute_names_do_not_hijack",
+        "parent": null,
+        "line": 172,
+        "sig": "def test_non_omniroute_names_do_not_hijack(monkeypatch, name)"
+      },
+      {
+        "kind": "function",
+        "name": "test_qwen_local_prefix_not_qwen_8200",
+        "parent": null,
+        "line": 183,
+        "sig": "def test_qwen_local_prefix_not_qwen_8200(monkeypatch)"
+      },
+      {
+        "kind": "function",
+        "name": "test_oc_muse_prefix_not_ask_muse",
+        "parent": null,
+        "line": 192,
+        "sig": "def test_oc_muse_prefix_not_ask_muse(monkeypatch)"
+      },
+      {
+        "kind": "function",
+        "name": "test_codex_prefix_not_codex_cli",
+        "parent": null,
+        "line": 202,
+        "sig": "def test_codex_prefix_not_codex_cli(monkeypatch)"
+      },
+      {
+        "kind": "function",
+        "name": "test_model_family_strips_omniroute_prefix",
+        "parent": null,
+        "line": 222,
+        "sig": "def test_model_family_strips_omniroute_prefix(name, family)"
+      },
+      {
+        "kind": "function",
+        "name": "test_omni_auto_distinct_from_concrete_families",
+        "parent": null,
+        "line": 226,
+        "sig": "def test_omni_auto_distinct_from_concrete_families()"
+      },
+      {
+        "kind": "function",
+        "name": "test_non_prefixed_family_unchanged",
+        "parent": null,
+        "line": 236,
+        "sig": "def test_non_prefixed_family_unchanged()"
       }
     ]
   },

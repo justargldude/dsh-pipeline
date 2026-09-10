@@ -352,7 +352,7 @@
   },
   "model/providers.py": {
     "description": "Tập hợp 17 symbol: hàm `resolve_deepseek_api_key` (dòng 20); hàm `resolve_tokenrouter_api_key` (dòng 68); hàm `resolve_xkiro_api_key` (dòng 88); class `BaseModelProvider` (dòng 108); phương thức `generate` (dòng 110); phương thức `extract_patch_proposal_structured` (dòng 114); phương thức `extract_patch_proposal` (dòng 189); class `MockModelProvider` (dòng 195); phương thức `__init__` (dòng 196); phương thức `generate` (dòng 215); class `OpenAICompatibleProvider` (dòng 258); phương thức `__init__` (dòng 259); phương thức `_get_client` (dòng 283); phương thức `close` (dòng 293); phương thức `__enter__` (dòng 298); phương thức `__exit__` (dòng 301); phương thức `generate` (dòng 304)",
-    "symbol_count": 17
+    "symbol_count": 20
   },
   "model/router.py": {
     "description": "Tập hợp 2 symbol: class `ModelRouter` (dòng 7); phương thức `route` (dòng 9)",
@@ -372,7 +372,7 @@
   },
   "orchestrator/subagents.py": {
     "description": "Tập hợp 20 symbol: hàm `_parse_subagent_timeout_env` (dòng 22); hàm `_is_muse_name` (dòng 38); class `SubagentCLIModelProvider` (dòng 56); phương thức `__init__` (dòng 64); phương thức `generate` (dòng 74); class `SubagentClient` (dòng 131); thuộc tính `DEFAULT_QUERY_TIMEOUT` (dòng 138); phương thức `__init__` (dòng 140); phương thức `set_mock_response` (dòng 151); phương thức `query` (dòng 155); phương thức `query_json` (dòng 228); phương thức `_extract_json` (dòng 234); hàm `create_qa_client` (dòng 263); hàm `create_dev_provider` (dòng 366); class `AntigravityClient` (dòng 492); phương thức `__init__` (dòng 495); class `DeepSeekClient` (dòng 505); phương thức `__init__` (dòng 508); phương thức `set_mock_provider` (dòng 523); phương thức `get_provider` (dòng 526)",
-    "symbol_count": 20
+    "symbol_count": 21
   },
   "recon/database.py": {
     "description": "Tập hợp 18 symbol: class `MatchState` (dòng 9); thuộc tính `MATCHED` (dòng 10); thuộc tính `AMBIGUOUS` (dòng 11); thuộc tính `UNMAPPED` (dòng 12); class `SymbolRecord` (dòng 15); class `CrossVersionMatchRecord` (dòng 26); class `EvidenceDatabase` (dòng 41); phương thức `__init__` (dòng 42); phương thức `_init_tables` (dòng 47); phương thức `insert_symbol` (dòng 96); phương thức `insert_call_edge` (dòng 115); phương thức `insert_mapping` (dòng 124); phương thức `get_symbol` (dòng 147); phương thức `get_symbols_by_name` (dòng 171); phương thức `get_callers` (dòng 190); phương thức `get_callees` (dòng 197); phương thức `get_best_mapping` (dòng 204); phương thức `close` (dòng 238)",
@@ -692,6 +692,14 @@
   },
   "_meta": {
     "last_synced_by": "script",
-    "synced_at": "2026-09-11 00:06:24"
+    "synced_at": "2026-09-11 00:36:27"
+  },
+  "tests/orchestrator/test_omniroute_prefix_precedence.py": {
+    "description": "Tập hợp 9 symbol: hàm `test_is_omniroute_name_prefixes` (dòng 18); hàm `test_is_omniroute_name_negatives` (dòng 25); hàm `test_dev_branch_omniroute_first_qwen_local` (dòng 37); hàm `test_dev_branch_omniroute_first_muse` (dòng 47); hàm `test_dev_branch_omniroute_first_deepseek_web` (dòng 57); hàm `test_dev_branch_omniroute_first_glm_aug` (dòng 65); hàm `test_qa_branch_omniroute_first_all_prefixes` (dòng 74); hàm `test_qa_branch_omniroute_before_family_branches` (dòng 95); hàm `test_qa_non_omniroute_names_unaffected` (dòng 111)",
+    "symbol_count": 9
+  },
+  "tests/orchestrator/test_omniroute_provider.py": {
+    "description": "Tập hợp 19 symbol: hàm `test_omniroute_key_env_wins` (dòng 33); hàm `test_omniroute_key_from_credentials` (dòng 38); hàm `test_omniroute_key_missing_raises` (dòng 50); hàm `test_omniroute_key_no_hardcoded_fallback` (dòng 61); hàm `test_omniroute_dev_provider_resolution` (dòng 78); hàm `test_omniroute_dev_provider_base_url_env_override` (dòng 90); hàm `test_omniroute_dev_provider_missing_key_raises` (dòng 97); hàm `test_omniroute_qa_client_resolution` (dòng 109); hàm `test_omniroute_qa_client_missing_wrapper_fails_fast` (dòng 119); hằng số `OMNI_PREFIXES` (dòng 132); hàm `test_omniroute_prefix_list_covers_all` (dòng 140); hàm `test_omniroute_names_route_to_omniroute_dev` (dòng 157); hàm `test_non_omniroute_names_do_not_hijack` (dòng 172); hàm `test_qwen_local_prefix_not_qwen_8200` (dòng 183); hàm `test_oc_muse_prefix_not_ask_muse` (dòng 192); hàm `test_codex_prefix_not_codex_cli` (dòng 202); hàm `test_model_family_strips_omniroute_prefix` (dòng 222); hàm `test_omni_auto_distinct_from_concrete_families` (dòng 226); hàm `test_non_prefixed_family_unchanged` (dòng 236)",
+    "symbol_count": 19
   }
 }

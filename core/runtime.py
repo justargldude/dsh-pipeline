@@ -98,6 +98,13 @@ PACT / DESIGN-BY-CONTRACT (MANDATORY):
 - Core/Domain code must stay PURE: no File/Directory/Socket/HttpClient I/O, no DateTime.Now/UtcNow (accept a timestamp parameter instead), no unseeded new Random() (accept a seed or IRandomSource parameter), no static mutable fields. Side effects belong to the Shell layer only.
 - Never hardcode a value that a test happens to assert (magic numbers, fixed strings, input->output lookup tables keyed on the exact test inputs). Derive results from the general rule the task describes.
 - You cannot see the full test suite. Tests you cannot see WILL run against your patch. Implement the general contract, not the specific visible examples.
+
+HUNK CONTRACT (MANDATORY):
+- old_text MUST be copied BYTE-FOR-BYTE (verbatim) from the file content provided in your context. Never retype it from memory; never merge lines; preserve every newline and indentation character exactly.
+- Copy the snippet from the context, not from your memory of it.
+- EMPTY old_text is ONLY allowed when the file does NOT exist yet (new file). For an existing file, empty old_text is rejected.
+- To APPEND to an existing file: copy the last few lines of the file as the old_text anchor (verbatim), and set new_text = that anchor followed by the added lines.
+- Each hunk's old_text must be unique enough in the file to identify exactly one location; include surrounding lines if needed.
 """
 
     # QA round-2 F-02: optional callback invoked with the worktree path right
@@ -654,7 +661,17 @@ PACT / DESIGN-BY-CONTRACT (MANDATORY):
                 # QA/Prover review actual changes, not a placeholder string.
                 captured_diff = ""
                 try:
-                    captured_diff = tx_worktree.capture_diff()
+                    _exclude = set(getattr(self, "_qa_injected_paths", None) or set())
+                    if getattr(task, "test_file", None):
+                        _exclude.add(task.test_file)
+                    for h in getattr(self, "_pending_holdouts", []) or []:
+                        try:
+                            _hf = h.get("holdout_test_file") if isinstance(h, dict) else getattr(h, "holdout_test_file", None)
+                        except Exception:
+                            _hf = None
+                        if _hf:
+                            _exclude.add(_hf)
+                    captured_diff = tx_worktree.capture_diff(exclude_paths=_exclude)
                 except Exception as diff_err:
                     self._log_event(PipelineEvent.ROLLBACK, task.task_id, f"[DRY-RUN] diff capture failed: {diff_err}")
                 self.session_tracker.release(tx_id)
