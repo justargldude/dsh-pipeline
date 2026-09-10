@@ -13,6 +13,8 @@ from model.providers import (
     MockModelProvider,
     resolve_tokenrouter_api_key,
     resolve_xkiro_api_key,
+    resolve_omniroute_api_key,
+    OMNIROUTE_MODEL_PREFIXES,
 )
 from model.schemas import ModelRequest, ModelResponse, ModelType
 from recovery.classifier import FailureType
@@ -51,6 +53,17 @@ def _is_muse_name(name: str) -> bool:
     if any(marker in name for marker in other_family_markers):
         return False
     return "muse" in name
+
+
+def _is_omniroute_name(name: str) -> bool:
+    """True iff name mang 1 prefix OmniRoute thật (agy/, codex/, oc/, ...).
+
+    Match THEO PREFIX (startswith) — KHÔNG dùng bare '/' in name: sẽ bắt
+    nhầm z-ai/glm-5.3-free (tokenrouter) và xkiro/... (xkiro cloud).
+    Case-insensitive (name đã .lower() trước khi vào).
+    """
+    lowered = str(name).lower()
+    return any(lowered.startswith(p) for p in OMNIROUTE_MODEL_PREFIXES)
 
 
 class SubagentCLIModelProvider(BaseModelProvider):
@@ -267,6 +280,21 @@ def create_qa_client(model_or_cli: str, test_mode: bool = False) -> SubagentClie
     if test_mode:
         return SubagentClient(name=name, cli_command=["mock-qa"], test_mode=True)
 
+    # 0. OmniRoute HTTP gateway — branch ĐẦU TIÊN, đứng trước mọi family branch
+    # để agy/, codex/, oc/... (prefix OmniRoute) không rơi branch CLI cũ.
+    # Model (prefix/...) truyền làm argv[1] cho ask-omniroute — đúng model
+    # người dùng chọn, không rơi default auto/best-coding.
+    if _is_omniroute_name(name):
+        ask_omni = shutil.which("ask-omniroute")
+        if not ask_omni:
+            raise RuntimeError(
+                f"ask-omniroute CLI not found in PATH for QA model '{name}' "
+                "(OmniRoute). Install dsh-portable (bin/ask-omniroute symlinked "
+                "to ~/.local/bin) or choose another model; refusing to silently "
+                "fall back to a different backend."
+            )
+        return SubagentClient(name=name, cli_command=[ask_omni, name], test_mode=False)
+
     # 1. Antigravity / Gemini
     if name in ["agy", "antigravity", "gemini"] or "gemini" in name:
         # Prefer the ask-agy wrapper: it accepts prompts via stdin (the
@@ -392,6 +420,19 @@ def create_dev_provider(
         )
 
     name = (model_or_cli or "deepseek").lower().strip()
+
+    # OmniRoute HTTP gateway — branch ĐẦU TIÊN: mọi model dạng prefix/...
+    # (agy/, codex/, oc/, oc-local/, qwen-local/, auto/, ...) qua HTTP
+    # 127.0.0.1:20128 thay vì CLI wrapper/proxy trực tiếp.
+    if _is_omniroute_name(name):
+        base_url = os.environ.get("OMNIROUTE_BASE_URL", "http://127.0.0.1:20128/v1").rstrip("/")
+        return OpenAICompatibleProvider(
+            api_key=resolve_omniroute_api_key(),
+            base_url=base_url,
+            fast_model=name,
+            reasoning_model=name,
+            timeout_seconds=int(os.environ.get("OMNIROUTE_TIMEOUT", "300")),
+        )
 
     if any(k in name for k in ["glm", "tokenrouter", "z-ai"]):
         base_url = os.environ.get("TOKENROUTER_BASE_URL", "https://api.tokenrouter.com/v1")

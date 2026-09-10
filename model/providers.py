@@ -105,6 +105,47 @@ def resolve_xkiro_api_key() -> str:
     return "sk-xt-daf1c81d707ce7921ecae1d12369a17af8309041f07d9807"
 
 
+OMNIROUTE_MODEL_PREFIXES = (
+    "agy/", "codex/", "oc/", "oc-local/", "qwen-local/", "auto/", "aug/",
+    "cfp/", "cx/", "cxa/", "tllm/", "dva/", "gh/", "github/", "openrouter/",
+    "opencode/", "opencode-zen/", "deepseek-web/", "ds-web/", "qwen-web/",
+    "no-think/",
+)
+
+
+def _omniroute_credentials_path() -> Path:
+    return Path.home() / ".dsh" / ".credentials.yaml"
+
+
+def resolve_omniroute_api_key() -> str:
+    """API key cho OmniRoute local gateway: env OMNIROUTE_API_KEY ->
+    ~/.dsh/.credentials.yaml refs.OMNIROUTE_API_KEY -> RuntimeError.
+
+    KHÔNG hardcode fallback: OmniRoute là hạ tầng local — thiếu key là lỗi
+    cấu hình máy, phải hiện rõ thay vì dùng key rác.
+    """
+    if os.environ.get("OMNIROUTE_API_KEY"):
+        return os.environ["OMNIROUTE_API_KEY"].strip()
+
+    cred_file = _omniroute_credentials_path()
+    if cred_file.exists():
+        try:
+            with open(cred_file, "r", encoding="utf-8") as f:
+                data = yaml.safe_load(f) or {}
+            if isinstance(data, dict):
+                refs = data.get("refs", {})
+                if "OMNIROUTE_API_KEY" in refs:
+                    return str(refs["OMNIROUTE_API_KEY"]).strip()
+        except Exception:
+            pass
+
+    raise RuntimeError(
+        "OMNIROUTE_API_KEY not found: set env OMNIROUTE_API_KEY or add "
+        "refs.OMNIROUTE_API_KEY to ~/.dsh/.credentials.yaml "
+        f"(searched {_omniroute_credentials_path()})."
+    )
+
+
 class BaseModelProvider(ABC):
     @abstractmethod
     def generate(self, req: ModelRequest) -> ModelResponse:
